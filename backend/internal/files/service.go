@@ -1,7 +1,6 @@
 package files
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"ai-chat-backend/internal/plans"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -157,10 +157,10 @@ func (s *Service) ProcessUpload(
 			case FileTypeText:
 				lower := strings.ToLower(filename)
 				if strings.HasSuffix(lower, ".csv") {
-					csvText, rowList, err := ExtractCSVContent(fileBytes)
+					csvText, err := ExtractCSVContent(fileBytes)
 					if err == nil {
 						extractedText = csvText
-						structuredChunks = ChunkDocumentPages(rowList, 1800, 200)
+						structuredChunks = ChunkDocumentPages([]string{extractedText}, 1800, 200)
 					}
 				} else if strings.HasSuffix(lower, ".json") {
 					jsonText, err := ExtractJSONContent(fileBytes)
@@ -169,11 +169,8 @@ func (s *Service) ProcessUpload(
 						structuredChunks = ChunkDocumentPages([]string{extractedText}, 1800, 200)
 					}
 				} else {
-					plainText, err := ExtractTextContent(fileBytes)
-					if err == nil {
-						extractedText = plainText
-						structuredChunks = ChunkDocumentPages([]string{extractedText}, 1800, 200)
-					}
+					extractedText = string(fileBytes)
+					structuredChunks = ChunkDocumentPages([]string{extractedText}, 1800, 200)
 				}
 			}
 		}

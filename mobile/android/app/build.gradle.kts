@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.aichat.app.mobile"
-    compileSdk = 36
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.1.12297006"
 
     compileOptions {
