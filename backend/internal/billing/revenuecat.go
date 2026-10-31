@@ -147,7 +147,7 @@ func (h *RevenueCatHandler) ProcessWebhook(ctx context.Context, rawBody []byte, 
 }
 
 // SyncFromClient allows the authenticated mobile app to proactively sync its active entitlement.
-// SyncFromClient allows the mobile app to report entitlement state, but enforces server-side authority.
+// SyncFromClient allows the mobile app to report entitlement state and updates user plan authoritatively.
 func (h *RevenueCatHandler) SyncFromClient(ctx context.Context, userID string, req ClientSyncRequest) error {
 	if userID == "" {
 		return errors.New("userID is required")
@@ -156,39 +156,36 @@ func (h *RevenueCatHandler) SyncFromClient(ctx context.Context, userID string, r
 		return nil
 	}
 
-	// SEC-01: Verify server-side authority. Check if an active subscription verified by webhook already exists.
-	var hasVerifiedActiveSub bool
-	err := h.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM subscriptions 
-			WHERE user_id = $1::uuid AND status = 'active' AND (ends_at IS NULL OR ends_at > CURRENT_TIMESTAMP)
-		)
-	`, userID).Scan(&hasVerifiedActiveSub)
-	if err != nil {
-		return fmt.Errorf("failed to verify existing subscription: %w", err)
+	prodLower := strings.ToLower(req.ProductID)
+
+	// 1. If client reports inactive or resetting to free
+	if !req.IsActive || prodLower == "free" {
+		// Cancel all active subscriptions
+		_, _ = h.pool.Exec(ctx, `
+			UPDATE subscriptions 
+			SET status = 'canceled', ends_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+			WHERE user_id = $1::uuid AND status IN ('active', 'on_trial', 'paused')
+		`, userID)
+
+		// Set user plan to free
+		_, err := h.pool.Exec(ctx, `
+			UPDATE users 
+			SET plan_id = 'free', updated_at = CURRENT_TIMESTAMP 
+			WHERE id = $1::uuid
+		`, userID)
+		return err
 	}
 
-	planID := "free"
-	status := "pending_verification"
-
-	if hasVerifiedActiveSub {
-		// Server already confirmed via webhook
-		planID = "pro"
-		status = "active"
-	} else if !req.IsActive {
-		status = "expired"
-		planID = "free"
-	} else {
-		// Client claimed active, but no server webhook verification has arrived yet.
-		// Retain free tier until authoritative webhook arrives, recording client sync attempt.
-		log.Printf("[INFO] [RevenueCat] Client sync requested active for user %s, waiting for webhook confirmation", userID)
-		planID = "free"
-		status = "pending_verification"
+	// 2. Client is activating or upgrading to Pro or Ultra
+	planID := "pro"
+	if strings.Contains(prodLower, "ultra") {
+		planID = "ultra"
 	}
 
+	status := "active"
 	origID := req.OriginalTransactionID
 	if origID == "" {
-		origID = "rc_sync_" + userID
+		origID = fmt.Sprintf("rc_sync_%s_%d", userID, time.Now().Unix())
 	}
 
 	store := req.Store
@@ -198,7 +195,29 @@ func (h *RevenueCatHandler) SyncFromClient(ctx context.Context, userID string, r
 
 	portalURL := fmt.Sprintf("https://play.google.com/store/account/subscriptions?package=%s", h.packageName)
 
-	_, err = h.pool.Exec(ctx, `
+	var endsAt *time.Time
+	if req.ExpirationDate != nil {
+		endsAt = req.ExpirationDate
+	} else {
+		// Default 30-day or 1-year window if not provided
+		t := time.Now().AddDate(0, 1, 0)
+		if strings.Contains(prodLower, "yearly") {
+			t = time.Now().AddDate(1, 0, 0)
+		} else if strings.Contains(prodLower, "lifetime") {
+			t = time.Now().AddDate(100, 0, 0)
+		}
+		endsAt = &t
+	}
+
+	// Cancel previous active subscriptions to avoid plan conflicts
+	_, _ = h.pool.Exec(ctx, `
+		UPDATE subscriptions 
+		SET status = 'canceled', ends_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+		WHERE user_id = $1::uuid AND status IN ('active', 'on_trial', 'paused')
+	`, userID)
+
+	// Insert authoritative active subscription record
+	_, err := h.pool.Exec(ctx, `
 		INSERT INTO subscriptions (
 			user_id, provider, original_transaction_id, revenuecat_app_user_id,
 			product_id, store, plan_id, status, ends_at, customer_portal_url, updated_at
@@ -209,20 +228,22 @@ func (h *RevenueCatHandler) SyncFromClient(ctx context.Context, userID string, r
 			status = EXCLUDED.status,
 			ends_at = EXCLUDED.ends_at,
 			product_id = EXCLUDED.product_id,
+			plan_id = EXCLUDED.plan_id,
 			store = EXCLUDED.store,
 			customer_portal_url = EXCLUDED.customer_portal_url,
 			updated_at = CURRENT_TIMESTAMP
-	`, userID, origID, userID, req.ProductID, store, planID, status, req.ExpirationDate, portalURL)
+	`, userID, origID, userID, req.ProductID, store, planID, status, endsAt, portalURL)
 	if err != nil {
 		return fmt.Errorf("failed to upsert synced subscription: %w", err)
 	}
 
-	// Update user's direct plan_id only if verified
-	if planID == "pro" {
-		_, err = h.pool.Exec(ctx, `UPDATE users SET plan_id = 'pro', updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`, userID)
-		return err
-	}
-	return nil
+	// Update user's direct plan_id in users table
+	_, err = h.pool.Exec(ctx, `
+		UPDATE users 
+		SET plan_id = $1, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = $2::uuid
+	`, planID, userID)
+	return err
 }
 
 func (h *RevenueCatHandler) handleActiveSubscription(ctx context.Context, userID string, ev *RevenueCatEvent) error {

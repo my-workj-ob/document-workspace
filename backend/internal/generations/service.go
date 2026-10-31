@@ -557,7 +557,35 @@ STREAM_END:
 		"model_id":      targetModel.ID,
 	}
 	if len(citations) > 0 {
-		respData["citations"] = citations
+		type CleanCitation struct {
+			FileID       string `json:"file_id"`
+			Filename     string `json:"filename"`
+			PageNumber   int    `json:"page_number"`
+			SectionTitle string `json:"section_title,omitempty"`
+			Display      string `json:"display"`
+		}
+
+		seen := make(map[string]bool)
+		var cleanCitations []CleanCitation
+		for _, c := range citations {
+			key := fmt.Sprintf("%s:%d", c.Filename, c.PageNumber)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			display := fmt.Sprintf("%s • %d-sahifa", c.Filename, c.PageNumber)
+			if c.SectionTitle != "" {
+				display = fmt.Sprintf("%s (%s) • %d-sahifa", c.Filename, c.SectionTitle, c.PageNumber)
+			}
+			cleanCitations = append(cleanCitations, CleanCitation{
+				FileID:       c.FileID,
+				Filename:     c.Filename,
+				PageNumber:   c.PageNumber,
+				SectionTitle: c.SectionTitle,
+				Display:      display,
+			})
+		}
+		respData["citations"] = cleanCitations
 	}
 	writeSSE(w, flusher, "generation.completed", respData)
 }

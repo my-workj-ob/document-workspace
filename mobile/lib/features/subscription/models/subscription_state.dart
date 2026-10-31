@@ -13,6 +13,7 @@ enum SubscriptionStatus {
 class SubscriptionState {
   final SubscriptionStatus status;
   final bool isPro;
+  final String planId; // 'free', 'pro', 'ultra'
   final CustomerInfo? customerInfo;
   final Offerings? offerings;
   final String? errorMessage;
@@ -21,6 +22,7 @@ class SubscriptionState {
   const SubscriptionState({
     this.status = SubscriptionStatus.uninitialized,
     this.isPro = false,
+    this.planId = 'free',
     this.customerInfo,
     this.offerings,
     this.errorMessage,
@@ -30,10 +32,13 @@ class SubscriptionState {
   bool get isLoading => status == SubscriptionStatus.loading;
   bool get isPurchasing => status == SubscriptionStatus.purchasing;
   bool get isRestoring => status == SubscriptionStatus.restoring;
+  bool get isUltra => planId == 'ultra';
+  bool get isAnyPaid => isPro || isUltra;
 
   SubscriptionState copyWith({
     SubscriptionStatus? status,
     bool? isPro,
+    String? planId,
     CustomerInfo? customerInfo,
     Offerings? offerings,
     String? errorMessage,
@@ -42,6 +47,7 @@ class SubscriptionState {
     return SubscriptionState(
       status: status ?? this.status,
       isPro: isPro ?? this.isPro,
+      planId: planId ?? this.planId,
       customerInfo: customerInfo ?? this.customerInfo,
       offerings: offerings ?? this.offerings,
       errorMessage: errorMessage,
