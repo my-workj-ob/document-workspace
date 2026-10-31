@@ -36,9 +36,32 @@ class ChatMessage {
         : <String>[];
 
     final rawCitations = json['citations'] as List?;
-    final citList = rawCitations != null
-        ? rawCitations.map((e) => e.toString()).toList()
-        : <String>[];
+    final citList = <String>[];
+    if (rawCitations != null) {
+      for (final item in rawCitations) {
+        if (item is Map) {
+          final display = item['display']?.toString();
+          if (display != null && display.isNotEmpty) {
+            citList.add(display);
+          } else {
+            final filename = item['filename']?.toString() ?? 'Hujjat';
+            final page = item['page_number']?.toString() ?? '1';
+            citList.add('$filename • $page-sahifa');
+          }
+        } else if (item != null) {
+          final str = item.toString();
+          if (str.contains('filename:') || str.contains('page_number:')) {
+            final fnMatch = RegExp(r'filename:\s*([^,}\n]+)').firstMatch(str);
+            final pageMatch = RegExp(r'page_number:\s*([0-9]+)').firstMatch(str);
+            final fn = fnMatch?.group(1)?.trim() ?? 'Hujjat';
+            final page = pageMatch?.group(1)?.trim() ?? '1';
+            citList.add('$fn • $page-sahifa');
+          } else {
+            citList.add(str);
+          }
+        }
+      }
+    }
 
     return ChatMessage(
       id: json['id'] ?? '',

@@ -387,9 +387,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
                   _contentBuffer.toString();
 
               final rawCitations = sseEvent.data['citations'] as List?;
-              final citationsList = rawCitations != null
-                  ? rawCitations.map((c) => c.toString()).toList()
-                  : <String>[];
+              final citationsList = <String>[];
+              if (rawCitations != null) {
+                for (final item in rawCitations) {
+                  if (item is Map) {
+                    final display = item['display']?.toString();
+                    if (display != null && display.isNotEmpty) {
+                      citationsList.add(display);
+                    } else {
+                      final filename = item['filename']?.toString() ?? 'Hujjat';
+                      final page = item['page_number']?.toString() ?? '1';
+                      citationsList.add('$filename • $page-sahifa');
+                    }
+                  } else if (item != null) {
+                    final str = item.toString();
+                    if (str.contains('filename:') || str.contains('page_number:')) {
+                      final fnMatch = RegExp(r'filename:\s*([^,}\n]+)').firstMatch(str);
+                      final pageMatch = RegExp(r'page_number:\s*([0-9]+)').firstMatch(str);
+                      final fn = fnMatch?.group(1)?.trim() ?? 'Hujjat';
+                      final page = pageMatch?.group(1)?.trim() ?? '1';
+                      citationsList.add('$fn • $page-sahifa');
+                    } else {
+                      citationsList.add(str);
+                    }
+                  }
+                }
+              }
 
               _updateAssistantMessage(
                 finalContent,

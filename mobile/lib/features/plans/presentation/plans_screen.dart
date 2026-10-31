@@ -25,8 +25,8 @@ class PlansScreen extends ConsumerStatefulWidget {
 class _PlansScreenState extends ConsumerState<PlansScreen> {
   bool _isLoading = false;
 
-  void _openCheckout(bool isPro) {
-    PaymentBottomSheet.show(context, isPro: isPro);
+  void _openCheckout(String planId) {
+    PaymentBottomSheet.show(context, planId: planId);
   }
 
   Future<void> _handleRestore(AppLanguage lang) async {
@@ -72,7 +72,10 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
       setState(() => _isLoading = false);
       if (success) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Free plan activated')),
+          const SnackBar(
+            backgroundColor: AppColors.primary,
+            content: Text('Free plan faollashtirildi!'),
+          ),
         );
       }
     } catch (e) {
@@ -91,10 +94,20 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
     final entitlementsAsync = ref.watch(userEntitlementsProvider);
     final subState = ref.watch(subscriptionProvider);
 
-    final isProUser = subState.isPro || (entitlementsAsync.value?['is_pro'] == true);
+    final backendPlan = (entitlementsAsync.value?['plan_id'] as String?)?.toLowerCase();
+    final effectivePlan = (backendPlan != null && backendPlan.isNotEmpty)
+        ? backendPlan
+        : subState.planId;
+
+    final isUltraUser = effectivePlan == 'ultra';
+    final isProUser = effectivePlan == 'pro';
+    final isFreeUser = !isUltraUser && !isProUser;
+
     final remainingRequests =
-        entitlementsAsync.value?['daily_requests_remaining'] ?? 40;
-    final dailyLimit = entitlementsAsync.value?['daily_requests_limit'] ?? 40;
+        entitlementsAsync.value?['daily_requests_remaining'] ??
+            (isUltraUser ? 1200 : (isProUser ? 400 : 40));
+    final dailyLimit = entitlementsAsync.value?['daily_requests_limit'] ??
+        (isUltraUser ? 1200 : (isProUser ? 400 : 40));
 
     return Scaffold(
       appBar: AppBar(
@@ -349,13 +362,13 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
               _buildPlanCard(
                 context: context,
                 plan: freePlan,
-                isCurrentPlan: !isProUser && !isUltraUser,
+                isCurrentPlan: isFreeUser,
                 isHighlighted: false,
                 features: freeFeatures,
-                buttonText: !isProUser && !isUltraUser
+                buttonText: isFreeUser
                     ? AppStrings.tr('plan_current', currentLang)
-                    : 'Free',
-                onPressed: (isProUser || isUltraUser) ? _handleResetToFree : null,
+                    : (currentLang == AppLanguage.ru ? 'Перейти на Free' : 'Free ga qaytish'),
+                onPressed: !isFreeUser ? _handleResetToFree : null,
               ),
 
               const SizedBox(height: 20),
@@ -364,15 +377,15 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
               _buildPlanCard(
                 context: context,
                 plan: proPlan,
-                isCurrentPlan: isProUser && !isUltraUser,
+                isCurrentPlan: isProUser,
                 isHighlighted: true,
                 badgeText: AppStrings.tr('plans_recommended_badge', currentLang),
                 features: proFeatures,
-                buttonText: isProUser && !isUltraUser
+                buttonText: isProUser
                     ? AppStrings.tr('plan_current', currentLang)
                     : AppStrings.tr('plans_choose_pro_btn', currentLang),
                 isLoading: _isLoading,
-                onPressed: () => _openCheckout(true),
+                onPressed: isProUser ? null : () => _openCheckout('pro'),
               ),
 
               const SizedBox(height: 20),
@@ -389,7 +402,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                     ? AppStrings.tr('plan_current', currentLang)
                     : AppStrings.tr('plans_choose_ultra_btn', currentLang),
                 isLoading: _isLoading,
-                onPressed: () => _openCheckout(false),
+                onPressed: isUltraUser ? null : () => _openCheckout('ultra'),
               ),
 
               const SizedBox(height: 32),

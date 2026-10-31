@@ -548,24 +548,51 @@ class _MessageBubbleState extends State<MessageBubble> {
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
-                      runSpacing: 4,
-                      children: widget.message.citations.map((c) {
+                      runSpacing: 5,
+                      children: widget.message.citations.map((raw) {
+                        String clean = raw;
+                        if (clean.contains('filename:') || clean.contains('page_number:')) {
+                          final fnMatch = RegExp(r'filename:\s*([^,}\n]+)').firstMatch(clean);
+                          final pageMatch = RegExp(r'page_number:\s*([0-9]+)').firstMatch(clean);
+                          final fn = fnMatch?.group(1)?.trim() ?? 'Hujjat';
+                          final page = pageMatch?.group(1)?.trim() ?? '1';
+                          clean = '$fn • $page-sahifa';
+                        }
+
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 8,
+                            vertical: 3.5,
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            c,
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primary,
+                            border: Border.all(
+                              color: AppColors.primary.withOpacity(0.25),
                             ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.description_outlined,
+                                size: 12,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  clean,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),

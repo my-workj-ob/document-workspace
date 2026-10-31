@@ -99,14 +99,22 @@ class ProfileScreen extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final entitlementsAsync = ref.watch(userEntitlementsProvider);
     final subState = ref.watch(subscriptionProvider);
-    final isProUser =
-        subState.isPro || (entitlementsAsync.value?['is_pro'] == true);
-    final planName = entitlementsAsync.value?['plan_name'] as String? ??
-        (isProUser ? AppStrings.tr('plan_pro', currentLang) : AppStrings.tr('plan_free', currentLang));
+    final backendPlan = (entitlementsAsync.value?['plan_id'] as String?)?.toLowerCase();
+    final effectivePlan = (backendPlan != null && backendPlan.isNotEmpty)
+        ? backendPlan
+        : subState.planId;
+    final isUltraUser = effectivePlan == 'ultra';
+    final isProUser = effectivePlan == 'pro';
+    final isPaidUser = isUltraUser || isProUser;
+    final planName = isUltraUser
+        ? 'Ultra'
+        : (isProUser ? AppStrings.tr('plan_pro', currentLang) : AppStrings.tr('plan_free', currentLang));
     final remaining =
-        entitlementsAsync.value?['daily_requests_remaining'] ?? 40;
+        entitlementsAsync.value?['daily_requests_remaining'] ??
+            (isUltraUser ? 1200 : (isProUser ? 400 : 40));
     final dailyLimit =
-        entitlementsAsync.value?['daily_requests_limit'] ?? 40;
+        entitlementsAsync.value?['daily_requests_limit'] ??
+            (isUltraUser ? 1200 : (isProUser ? 400 : 40));
 
     return Scaffold(
       appBar: AppBar(
@@ -172,17 +180,21 @@ class ProfileScreen extends ConsumerWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: isProUser
-                                  ? Colors.amber.withOpacity(0.15)
-                                  : AppColors.primary.withOpacity(0.12),
+                              color: isUltraUser
+                                  ? Colors.deepPurpleAccent.withOpacity(0.18)
+                                  : (isProUser
+                                      ? Colors.amber.withOpacity(0.15)
+                                      : AppColors.primary.withOpacity(0.12)),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              isProUser ? 'PRO' : 'FREE',
+                              isUltraUser ? 'ULTRA' : (isProUser ? 'PRO' : 'FREE'),
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: isProUser ? Colors.amber : AppColors.primary,
+                                color: isUltraUser
+                                    ? Colors.deepPurpleAccent
+                                    : (isProUser ? Colors.amber : AppColors.primary),
                               ),
                             ),
                           ),
@@ -298,7 +310,7 @@ class ProfileScreen extends ConsumerWidget {
                         : AppColors.lightTextSecondary,
                   ),
                 ),
-                if (!isProUser) ...[
+                if (!isPaidUser) ...[
                   const SizedBox(height: 14),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
@@ -308,7 +320,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     onPressed: () {
                       UiSoundFeedback.playActionClick();
-                      PaymentBottomSheet.show(context, isPro: true);
+                      PaymentBottomSheet.show(context, planId: 'pro');
                     },
                     icon: const Icon(Icons.bolt_rounded, size: 18),
                     label: Text(

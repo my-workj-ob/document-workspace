@@ -79,6 +79,8 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
 
     final hasPro = _service.hasProEntitlement(info);
     final ent = info.entitlements.active[RevenueCatConfig.entitlementId];
+    final isUltra = ent?.productIdentifier.toLowerCase().contains('ultra') ?? false;
+    final planId = isUltra ? 'ultra' : (hasPro ? 'pro' : 'free');
     DateTime? expDate;
     if (ent?.expirationDate != null) {
       try {
@@ -89,6 +91,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     state = state.copyWith(
       status: hasPro ? SubscriptionStatus.active : SubscriptionStatus.inactive,
       isPro: hasPro,
+      planId: planId,
       customerInfo: info,
       offerings: offerings ?? state.offerings,
       expirationDate: expDate,
@@ -233,6 +236,9 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
         expiration = now.add(const Duration(days: 30)); // 1 month
       }
 
+      final isUltra = productId.toLowerCase().contains('ultra');
+      final targetPlan = isUltra ? 'ultra' : 'pro';
+
       final txId = 'tx_card_${now.millisecondsSinceEpoch}_${last4 ?? "8600"}';
       final apiClient = _ref.read(apiClientProvider);
       await apiClient.post(
@@ -250,6 +256,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       state = state.copyWith(
         status: SubscriptionStatus.active,
         isPro: true,
+        planId: targetPlan,
         expirationDate: expiration,
       );
 
@@ -286,6 +293,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       state = state.copyWith(
         status: SubscriptionStatus.inactive,
         isPro: false,
+        planId: 'free',
         expirationDate: null,
       );
 
