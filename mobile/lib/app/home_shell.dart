@@ -76,7 +76,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildNavItem(0, Icons.grid_view_rounded, 'Explore'),
+                _buildNavItem(0, Icons.grid_view_rounded, 'Asboblar'),
                 _buildNavItem(1, Icons.chat_bubble_rounded, 'Chat'),
                 _buildNavItem(2, Icons.person_rounded, 'Profil'),
               ],

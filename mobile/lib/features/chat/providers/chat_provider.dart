@@ -434,17 +434,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
               final presentable =
                   PresentableError.fromRaw(errMsg, code: errCode);
 
-              _updateAssistantMessage(
-                presentable.message,
-                'failed',
-                targetIndex: targetAssistantIndex,
-              );
-              state = state.copyWith(
-                isGenerating: false,
-                activeGenerationId: null,
-                errorMessage: presentable.message,
-                topError: presentable,
-              );
+              final currentBuffered = _contentBuffer.toString().trim();
+              if (currentBuffered.isNotEmpty) {
+                // Preserve generated response so user never loses their answer!
+                _updateAssistantMessage(
+                  currentBuffered,
+                  'completed',
+                  targetIndex: targetAssistantIndex,
+                );
+                state = state.copyWith(
+                  isGenerating: false,
+                  activeGenerationId: null,
+                );
+              } else {
+                _updateAssistantMessage(
+                  presentable.message,
+                  'failed',
+                  targetIndex: targetAssistantIndex,
+                );
+                state = state.copyWith(
+                  isGenerating: false,
+                  activeGenerationId: null,
+                  errorMessage: presentable.message,
+                  topError: presentable,
+                );
+              }
               break;
           }
         },
@@ -452,17 +466,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
           _flushTimer?.cancel();
           _hasPendingDelta = false;
           final presentable = PresentableError.fromRaw(err);
-          _updateAssistantMessage(
-            presentable.message,
-            'failed',
-            targetIndex: targetAssistantIndex,
-          );
-          state = state.copyWith(
-            isGenerating: false,
-            activeGenerationId: null,
-            errorMessage: presentable.message,
-            topError: presentable,
-          );
+
+          final currentBuffered = _contentBuffer.toString().trim();
+          if (currentBuffered.isNotEmpty) {
+            // Preserve generated response so user never loses their answer!
+            _updateAssistantMessage(
+              currentBuffered,
+              'completed',
+              targetIndex: targetAssistantIndex,
+            );
+            state = state.copyWith(
+              isGenerating: false,
+              activeGenerationId: null,
+            );
+          } else {
+            _updateAssistantMessage(
+              presentable.message,
+              'failed',
+              targetIndex: targetAssistantIndex,
+            );
+            state = state.copyWith(
+              isGenerating: false,
+              activeGenerationId: null,
+              errorMessage: presentable.message,
+              topError: presentable,
+            );
+          }
         },
         onDone: () {
           _flushTimer?.cancel();

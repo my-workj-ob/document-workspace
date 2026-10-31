@@ -59,7 +59,7 @@ func NewOpenAICompatibleProvider(baseURL, apiKey, model, systemPrompt string, ma
 		maxTokens:    maxTokens,
 		temperature:  temperature,
 		client: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 300 * time.Second,
 		},
 	}
 }
@@ -70,10 +70,20 @@ func (p *OpenAICompatibleProvider) WithModel(model string, maxTokens int) *OpenA
 	if tokens <= 0 {
 		tokens = p.maxTokens
 	}
+	targetModel := model
+	if targetModel == "" {
+		targetModel = p.model
+	}
+	// If base URL is Google Gemini, safely map any legacy or non-gemini model ID to Gemini 2.5 Flash
+	if strings.Contains(p.baseURL, "generativelanguage.googleapis.com") {
+		if !strings.HasPrefix(targetModel, "gemini-") {
+			targetModel = "gemini-2.5-flash"
+		}
+	}
 	return &OpenAICompatibleProvider{
 		baseURL:      p.baseURL,
 		apiKey:       p.apiKey,
-		model:        model,
+		model:        targetModel,
 		systemPrompt: p.systemPrompt,
 		maxTokens:    tokens,
 		temperature:  p.temperature,
@@ -185,15 +195,25 @@ func (p *OpenAICompatibleProvider) StreamChat(ctx context.Context, messages []Ch
 			return
 		}
 
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
+		reader := bufio.NewReaderSize(resp.Body, 512*1024)
+		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
 			}
 
-			line := scanner.Text()
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if !errors.Is(ctx.Err(), context.Canceled) {
+					errCh <- fmt.Errorf("stream read error: %w", err)
+				}
+				break
+			}
+
 			line = strings.TrimSpace(line)
 			if line == "" || strings.HasPrefix(line, ":") {
 				continue
@@ -220,10 +240,6 @@ func (p *OpenAICompatibleProvider) StreamChat(ctx context.Context, messages []Ch
 					outCh <- StreamChunk{DeltaContent: delta}
 				}
 			}
-		}
-
-		if err := scanner.Err(); err != nil && !errors.Is(err, io.EOF) && !errors.Is(ctx.Err(), context.Canceled) {
-			errCh <- fmt.Errorf("stream read error: %w", err)
 		}
 	}()
 

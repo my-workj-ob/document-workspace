@@ -221,19 +221,19 @@ INSERT INTO plans (
 )
 VALUES 
 (
-    'free', 'Bepul (Free)', 'Soatiga 15 ta, kuniga 40 ta so''rov, 10MB hujjatlar va tejamkor modellar', 
-    15, 40, 200, 500000, 4000, 1024, 1, 10485760, 2, TRUE, TRUE, FALSE, 
-    '{"nemotron-ultra","cohere-code","gpt-4o-mini"}', 0, TRUE
+    'free', 'Bepul (Free)', 'Soatiga 15 ta, kuniga 40 ta so''rov, 20MB hujjatlar va tejamkor modellar', 
+    15, 40, 200, 2000000, 16000, 4096, 2, 20971520, 5, TRUE, TRUE, FALSE, 
+    '{"nemotron-ultra","cohere-code","gpt-4o-mini","gemini-2.5-flash"}', 0, TRUE
 ),
 (
-    'pro', 'Pro Obuna ($9.99/oy)', 'Soatiga 60 ta, kuniga 400 ta so''rov, 50MB fayllar, GPT-4o, Claude 3.5 va 32k kontekst', 
-    60, 400, 2000, 10000000, 32000, 4096, 3, 52428800, 5, TRUE, TRUE, TRUE, 
-    '{"nemotron-ultra","cohere-code","gpt-4o-mini","gpt-4o","claude-3-5-sonnet","deepseek-r1","llama-70b"}', 999, TRUE
+    'pro', 'Pro Obuna ($9.99/oy)', 'Soatiga 60 ta, kuniga 400 ta so''rov, 50MB fayllar, 1,000 sahifagacha PDF tahlil', 
+    60, 400, 2000, 20000000, 64000, 8192, 4, 52428800, 5, TRUE, TRUE, TRUE, 
+    '{"nemotron-ultra","cohere-code","gpt-4o-mini","gemini-2.5-flash","gpt-4o","claude-3-5-sonnet","deepseek-r1","llama-70b"}', 999, TRUE
 ),
 (
     'ultra', 'Ultra Obuna ($24.99/oy)', 'Cheksiz imkoniyatlar: soatiga 180 ta, kuniga 1200 ta so''rov, 200MB fayllar, to''liq multimodal va eng yuqori navbat', 
-    180, 1200, 6000, 30000000, 128000, 8192, 6, 209715200, 10, TRUE, TRUE, TRUE, 
-    '{"nemotron-ultra","cohere-code","gpt-4o-mini","gpt-4o","claude-3-5-sonnet","deepseek-r1","llama-70b","gemini-1-5-pro"}', 2499, TRUE
+    180, 1200, 6000, 50000000, 128000, 16384, 8, 209715200, 10, TRUE, TRUE, TRUE, 
+    '{"nemotron-ultra","cohere-code","gpt-4o-mini","gemini-2.5-flash","gpt-4o","claude-3-5-sonnet","deepseek-r1","llama-70b","gemini-1-5-pro"}', 2499, TRUE
 )
 ON CONFLICT (id) DO UPDATE SET 
     name = EXCLUDED.name,
@@ -255,7 +255,19 @@ ON CONFLICT (id) DO UPDATE SET
 
 ALTER TABLE models ADD COLUMN IF NOT EXISTS is_vision BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE models ADD COLUMN IF NOT EXISTS is_multimodal BOOLEAN NOT NULL DEFAULT FALSE;
-UPDATE models SET is_vision = TRUE, is_multimodal = TRUE WHERE id IN ('gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet');
+UPDATE models SET is_vision = TRUE, is_multimodal = TRUE WHERE id IN ('gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet', 'gemini-2.5-flash');
+
+INSERT INTO models (id, name, description, provider, provider_model_id, is_enabled, allowed_plans, max_context_tokens, max_output_tokens, input_price_per_million_usd, output_price_per_million_usd, is_free_tier, is_reasoning, is_vision, is_multimodal)
+VALUES
+('gemini-2.5-flash', 'Gemini 2.5 Flash', 'Google-ning 1M kontekstli eng ilg''or multimodal hujjat tahlil modeli', 'gemini', 'gemini-2.5-flash', TRUE, '{"free","pro","ultra"}', 1000000, 8192, 0.0750, 0.3000, TRUE, FALSE, TRUE, TRUE),
+('gemini-1.5-flash', 'Gemini 1.5 Flash', 'Tezkor va ulkan hujjatlarni tahlil qiluvchi Google modeli', 'gemini', 'gemini-1.5-flash', TRUE, '{"free","pro","ultra"}', 1000000, 8192, 0.0750, 0.3000, TRUE, FALSE, TRUE, TRUE)
+ON CONFLICT (id) DO UPDATE SET 
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    provider_model_id = EXCLUDED.provider_model_id,
+    allowed_plans = EXCLUDED.allowed_plans,
+    is_vision = EXCLUDED.is_vision,
+    is_multimodal = EXCLUDED.is_multimodal;
 
 CREATE TABLE IF NOT EXISTS files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

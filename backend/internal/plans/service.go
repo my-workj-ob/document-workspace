@@ -29,17 +29,17 @@ func (s *Service) ListPlans(ctx context.Context) ([]Plan, error) {
 		return []Plan{
 			{
 				ID: "free", Name: "Bepul (Free)", Description: "Bepul boshlang'ich reja",
-				HourlyRequests: 15, DailyRequests: 40, WeeklyRequests: 200, MonthlyTokens: 500000,
-				MaxInputTokens: 4000, MaxOutputTokens: 1024, MaxActiveStreams: 1,
-				MaxFileSizeBytes: 10485760, MaxFilesPerRequest: 2,
+				HourlyRequests: 15, DailyRequests: 40, WeeklyRequests: 200, MonthlyTokens: 2000000,
+				MaxInputTokens: 16000, MaxOutputTokens: 4096, MaxActiveStreams: 2,
+				MaxFileSizeBytes: 20971520, MaxFilesPerRequest: 5,
 				AllowsVision: true, AllowsDocumentRAG: true, AllowsMedia: false,
 				AllowedModels: []string{"nemotron-ultra", "cohere-code", "gpt-4o-mini"},
 				PriceUSDCents: 0, IsActive: true,
 			},
 			{
 				ID: "pro", Name: "Pro Obuna ($9.99/oy)", Description: "Ilg'or modellar va hujjatlar tahlili",
-				HourlyRequests: 60, DailyRequests: 400, WeeklyRequests: 2000, MonthlyTokens: 10000000,
-				MaxInputTokens: 32000, MaxOutputTokens: 4096, MaxActiveStreams: 3,
+				HourlyRequests: 60, DailyRequests: 400, WeeklyRequests: 2000, MonthlyTokens: 20000000,
+				MaxInputTokens: 64000, MaxOutputTokens: 8192, MaxActiveStreams: 4,
 				MaxFileSizeBytes: 52428800, MaxFilesPerRequest: 5,
 				AllowsVision: true, AllowsDocumentRAG: true, AllowsMedia: true,
 				AllowedModels: []string{"nemotron-ultra", "cohere-code", "gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet", "deepseek-r1", "llama-70b"},
@@ -47,8 +47,8 @@ func (s *Service) ListPlans(ctx context.Context) ([]Plan, error) {
 			},
 			{
 				ID: "ultra", Name: "Ultra Obuna ($24.99/oy)", Description: "To'liq multimodal va cheksiz imkoniyatlar",
-				HourlyRequests: 180, DailyRequests: 1200, WeeklyRequests: 6000, MonthlyTokens: 30000000,
-				MaxInputTokens: 128000, MaxOutputTokens: 8192, MaxActiveStreams: 6,
+				HourlyRequests: 180, DailyRequests: 1200, WeeklyRequests: 6000, MonthlyTokens: 50000000,
+				MaxInputTokens: 128000, MaxOutputTokens: 16384, MaxActiveStreams: 8,
 				MaxFileSizeBytes: 209715200, MaxFilesPerRequest: 10,
 				AllowsVision: true, AllowsDocumentRAG: true, AllowsMedia: true,
 				AllowedModels: []string{"nemotron-ultra", "cohere-code", "gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet", "deepseek-r1", "llama-70b", "gemini-1-5-pro"},
@@ -149,8 +149,8 @@ func (s *Service) ResolveUserEntitlement(ctx context.Context, userID string) (*U
 			plan = &Plan{
 				ID: "free", Name: "Bepul (Free)",
 				HourlyRequests: 15, DailyRequests: 40, WeeklyRequests: 200,
-				MaxInputTokens: 4000, MaxOutputTokens: 1024, MaxActiveStreams: 1,
-				MaxFileSizeBytes: 10485760, MaxFilesPerRequest: 2,
+				MaxInputTokens: 16000, MaxOutputTokens: 4096, MaxActiveStreams: 2,
+				MaxFileSizeBytes: 20971520, MaxFilesPerRequest: 5,
 				AllowsVision: true, AllowsDocumentRAG: true, AllowsMedia: false,
 				AllowedModels: []string{"nemotron-ultra", "cohere-code", "gpt-4o-mini"},
 			}
@@ -216,8 +216,8 @@ func (s *Service) ResolveUserEntitlement(ctx context.Context, userID string) (*U
 			plan = &Plan{
 				ID: "free", Name: "Bepul (Free)",
 				HourlyRequests: 15, DailyRequests: 40, WeeklyRequests: 200,
-				MaxInputTokens: 4000, MaxOutputTokens: 1024, MaxActiveStreams: 1,
-				MaxFileSizeBytes: 10485760, MaxFilesPerRequest: 2,
+				MaxInputTokens: 16000, MaxOutputTokens: 4096, MaxActiveStreams: 2,
+				MaxFileSizeBytes: 20971520, MaxFilesPerRequest: 5,
 				AllowsVision: true, AllowsDocumentRAG: true, AllowsMedia: false,
 				AllowedModels: []string{"nemotron-ultra", "cohere-code", "gpt-4o-mini"},
 			}

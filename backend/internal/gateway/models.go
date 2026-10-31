@@ -82,6 +82,17 @@ func (r *ModelRegistry) ListPublicModels(ctx context.Context, userPlanID string)
 				IsProOnly:        false,
 			},
 			{
+				ID:               "gemini-2.5-flash",
+				Name:             "Google Gemini 2.5 Flash",
+				Description:      "1M kontekstli ulkan hujjat va PDF tahlili uchun eng tezkor model",
+				AllowedPlans:     []string{"free", "pro", "ultra"},
+				MaxContextTokens: 1000000,
+				MaxOutputTokens:  8192,
+				IsFreeTier:       true,
+				IsReasoning:      false,
+				IsProOnly:        false,
+			},
+			{
 				ID:               "gpt-4o",
 				Name:             "GPT-4o Omni",
 				Description:      "Eng yuqori aniqlikdagi flagman model",
@@ -167,6 +178,17 @@ func (r *ModelRegistry) GetModel(ctx context.Context, modelID string) (*Model, e
 				MaxContextTokens: 32000,
 				MaxOutputTokens:  4096,
 				IsFreeTier:      false,
+			},
+			"gemini-2.5-flash": {
+				ID:              "gemini-2.5-flash",
+				Name:            "Google Gemini 2.5 Flash",
+				Provider:        "gemini",
+				ProviderModelID: "gemini-2.5-flash",
+				IsEnabled:       true,
+				AllowedPlans:    []string{"free", "pro", "ultra"},
+				MaxContextTokens: 1000000,
+				MaxOutputTokens:  8192,
+				IsFreeTier:      true,
 			},
 		}
 		if m, ok := defaults[modelID]; ok {

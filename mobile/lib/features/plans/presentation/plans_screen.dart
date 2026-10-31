@@ -352,6 +352,15 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final cleanPlanName = plan.name
+        .replaceAll(RegExp(r'\s*\(\$[^)]+\)'), '')
+        .replaceAll(RegExp(r'\s*\(Free\)', caseSensitive: false), '')
+        .trim();
+
+    final cleanDescription = plan.id == 'pro' && plan.description.contains('32k')
+        ? '1,000 sahifagacha bo\'lgan kitob va hujjatlarni bir zumda tahlil qilish, sahifama-sahifa aniq manbalar (Citations)'
+        : plan.description;
+
     return Material(
       color: isHighlighted
           ? (isDark ? const Color(0xFF1E2620) : const Color(0xFFF0FAF4))
@@ -396,13 +405,18 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  plan.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    cleanPlanName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   plan.priceFormatted,
                   style: TextStyle(
@@ -415,7 +429,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              plan.description,
+              cleanDescription,
               style: TextStyle(
                 fontSize: 13,
                 color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,

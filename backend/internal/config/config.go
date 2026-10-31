@@ -37,6 +37,13 @@ func Load() *Config {
 	_ = godotenv.Load() // optional local .env
 
 	aiKey := getEnv("AI_API_KEY", "")
+	geminiKey := getEnv("AI_GEMINI_API_KEY", "")
+	if geminiKey == "" {
+		geminiKey = getEnv("GEMINI_API_KEY", "")
+	}
+	if geminiKey != "" && (aiKey == "" || strings.HasPrefix(aiKey, "sk-or-your")) {
+		aiKey = geminiKey
+	}
 	if aiKey == "" {
 		aiKey = getEnv("OPEN_ROUTER_KEY", "")
 	}
@@ -46,7 +53,10 @@ func Load() *Config {
 
 	aiBaseURL := getEnv("AI_PROVIDER_BASE_URL", "")
 	if aiBaseURL == "" {
-		if strings.HasPrefix(aiKey, "sk-or-") {
+		if strings.HasPrefix(aiKey, "AIzaSy") || geminiKey != "" {
+			// Official Google AI Studio OpenAI-compatible endpoint (Gemini 2.5 Flash, 1.5 Flash, 1.5 Pro)
+			aiBaseURL = "https://generativelanguage.googleapis.com/v1beta/openai"
+		} else if strings.HasPrefix(aiKey, "sk-or-") {
 			aiBaseURL = "https://openrouter.ai/api/v1"
 		} else {
 			aiBaseURL = "https://api.openai.com/v1"
@@ -55,7 +65,9 @@ func Load() *Config {
 
 	aiModel := getEnv("AI_MODEL", "")
 	if aiModel == "" {
-		if strings.Contains(aiBaseURL, "openrouter.ai") {
+		if strings.Contains(aiBaseURL, "generativelanguage.googleapis.com") {
+			aiModel = "gemini-2.5-flash"
+		} else if strings.Contains(aiBaseURL, "openrouter.ai") {
 			aiModel = "nvidia/nemotron-3-ultra-550b-a55b:free"
 		} else {
 			aiModel = "gpt-4o-mini"

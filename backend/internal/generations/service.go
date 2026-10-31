@@ -467,37 +467,41 @@ STREAM_END:
 	}
 
 	if streamErr != nil {
-		errCode := "UPSTREAM_ERROR"
-		errMsg := "AI provayderi bilan ulanishda vaqtincha xatolik yuz berdi. Iltimos, qayta urining."
-		errStr := strings.ToLower(streamErr.Error())
+		// If substantial content was already generated (e.g. LLM finished answering or network closed after reply),
+		// preserve the generated answer as completed so user never loses their response!
+		if len(strings.TrimSpace(fullAssistantContent)) <= 20 {
+			errCode := "UPSTREAM_ERROR"
+			errMsg := "AI provayderi bilan ulanishda vaqtincha xatolik yuz berdi. Iltimos, qayta urining."
+			errStr := strings.ToLower(streamErr.Error())
 
-		if errors.Is(streamErr, ai.ErrNotConfigured) {
-			errCode = "AI_PROVIDER_NOT_CONFIGURED"
-			errMsg = "AI provayder kaliti sozlanmagan"
-		} else if strings.Contains(errStr, "context") || strings.Contains(errStr, "token") || strings.Contains(errStr, "too large") {
-			errCode = "CONTEXT_LENGTH_EXCEEDED"
-			errMsg = "Savol yoki hujjat hajmi model chegarasidan oshdi. Iltimos, yangi suhbat oching yoki qisqaroq qism bo'yicha savol bering."
-		} else if strings.Contains(errStr, "429") || strings.Contains(errStr, "rate limit") {
-			errCode = "RATE_LIMIT_EXCEEDED"
-			errMsg = "AI provayderi tezlik chekloviga (Rate Limit) uchradi. Iltimos, bir necha soniyadan so'ng qayta urining."
+			if errors.Is(streamErr, ai.ErrNotConfigured) {
+				errCode = "AI_PROVIDER_NOT_CONFIGURED"
+				errMsg = "AI provayder kaliti sozlanmagan"
+			} else if strings.Contains(errStr, "maximum context length") || strings.Contains(errStr, "context_length_exceeded") || strings.Contains(errStr, "prompt is too long") || strings.Contains(errStr, "too many tokens") {
+				errCode = "CONTEXT_LENGTH_EXCEEDED"
+				errMsg = "Savol yoki hujjat hajmi model chegarasidan oshdi. Iltimos, yangi suhbat oching yoki qisqaroq qism bo'yicha savol bering."
+			} else if strings.Contains(errStr, "429") || strings.Contains(errStr, "rate limit") {
+				errCode = "RATE_LIMIT_EXCEEDED"
+				errMsg = "AI provayderi tezlik chekloviga (Rate Limit) uchradi. Iltimos, bir necha soniyadan so'ng qayta urining."
+			}
+
+			if s.pool != nil {
+				_, _ = s.pool.Exec(context.Background(), `
+					UPDATE generations
+					SET status = 'failed', error_code = $1, error_message = $2, completed_at = CURRENT_TIMESTAMP
+					WHERE id = $3
+				`, errCode, errMsg, genID)
+			}
+
+			_ = s.quotaService.ReleaseReservation(context.Background(), ledgerID, "failed")
+
+			writeSSE(w, flusher, "generation.failed", map[string]string{
+				"generation_id": genID,
+				"code":          errCode,
+				"message":       errMsg,
+			})
+			return
 		}
-
-		if s.pool != nil {
-			_, _ = s.pool.Exec(context.Background(), `
-				UPDATE generations
-				SET status = 'failed', error_code = $1, error_message = $2, completed_at = CURRENT_TIMESTAMP
-				WHERE id = $3
-			`, errCode, errMsg, genID)
-		}
-
-		_ = s.quotaService.ReleaseReservation(context.Background(), ledgerID, "failed")
-
-		writeSSE(w, flusher, "generation.failed", map[string]string{
-			"generation_id": genID,
-			"code":          errCode,
-			"message":       errMsg,
-		})
-		return
 	}
 
 	// 9. Persist completed assistant message

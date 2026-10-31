@@ -74,10 +74,17 @@ class PresentableError {
     } else if (effectiveCode == 'FILE_TOO_LARGE' ||
         effectiveCode == 'FILE_SIZE_LIMIT_EXCEEDED' ||
         lower.contains('file_too_large') ||
-        lower.contains('hajmi') && lower.contains('oshdi')) {
+        lower.contains('fayl hajmi oshdi')) {
       userMessage = 'Hujjat juda katta. Uni qismlarga ajratib yuboring.';
       resolvedActionLabel = null;
       resolvedActionType = ErrorActionType.splitFile;
+      severity = ErrorSeverity.warning;
+    } else if (effectiveCode == 'CONTEXT_LENGTH_EXCEEDED' ||
+        lower.contains('context_length') ||
+        lower.contains('model chegarasidan oshdi')) {
+      userMessage = 'Suhbat yoki matn hajmi model chegarasidan oshdi. Yangi suhbat boshlang.';
+      resolvedActionLabel = actionLabel ?? 'Qayta urinish';
+      resolvedActionType = ErrorActionType.retry;
       severity = ErrorSeverity.warning;
     } else if (effectiveCode == 'FILE_COUNT_LIMIT_EXCEEDED' || lower.contains('5 ta fayl')) {
       userMessage = 'Bitta xabarga ko\'pi bilan 5 ta fayl biriktirish mumkin.';
