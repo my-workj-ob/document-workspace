@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/ui_sound_feedback.dart';
@@ -97,6 +98,7 @@ class ConversationsDrawer extends ConsumerWidget {
     final conversationsAsync = ref.watch(conversationsProvider);
     final selectedId = ref.watch(selectedConversationIdProvider);
     final authState = ref.watch(authProvider);
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Drawer(
@@ -118,7 +120,7 @@ class ConversationsDrawer extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
-                      Icons.chat_bubble_rounded,
+                      Icons.school_rounded,
                       color: AppColors.primary,
                       size: 18,
                     ),
@@ -126,7 +128,7 @@ class ConversationsDrawer extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'The Go-getters',
+                      'EduAI',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -154,7 +156,7 @@ class ConversationsDrawer extends ConsumerWidget {
                   onNewChat();
                 },
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Yangi suhbat'),
+                label: Text(AppStrings.tr('new_chat', currentLang)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.black,

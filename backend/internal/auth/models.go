@@ -8,6 +8,7 @@ type User struct {
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
 	FullName     string    `json:"full_name"`
+	Locale       string    `json:"locale"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -18,6 +19,7 @@ type UserPublic struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
 	FullName  string    `json:"full_name"`
+	Locale    string    `json:"locale"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -26,6 +28,7 @@ type RegisterRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	FullName string `json:"full_name"`
+	Locale   string `json:"locale,omitempty"`
 }
 
 // LoginRequest payload.
@@ -37,6 +40,11 @@ type LoginRequest struct {
 // RefreshRequest payload.
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
+}
+
+// UpdateLocaleRequest payload.
+type UpdateLocaleRequest struct {
+	Locale string `json:"locale"`
 }
 
 // AuthResponse payload returned on successful register, login, or refresh.

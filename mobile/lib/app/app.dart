@@ -6,6 +6,8 @@ import '../core/theme/app_theme.dart';
 import '../core/theme/theme_provider.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
+import '../features/onboarding/presentation/onboarding_screen.dart';
+import '../features/onboarding/providers/onboarding_provider.dart';
 import 'home_shell.dart';
 
 class AiChatApp extends ConsumerWidget {
@@ -15,22 +17,25 @@ class AiChatApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final authState = ref.watch(authProvider);
+    final onboardingState = ref.watch(onboardingProvider);
 
     return MaterialApp(
-      title: 'The Go-getters AI',
+      title: 'EduAI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      home: authState.isLoading
+      home: (authState.isLoading || !onboardingState.isLoaded)
           ? const Scaffold(
               body: Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
             )
-          : authState.isAuthenticated
-          ? const HomeShell()
-          : const LoginScreen(),
+          : !onboardingState.hasCompleted
+              ? OnboardingScreen(onFinished: () {})
+              : authState.isAuthenticated
+                  ? const HomeShell()
+                  : const LoginScreen(),
     );
   }
 }

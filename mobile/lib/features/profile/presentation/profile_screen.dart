@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_sound_feedback.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../chat/providers/models_provider.dart';
+import '../../onboarding/presentation/language_selection_screen.dart';
+import '../../onboarding/presentation/onboarding_screen.dart';
 import '../../plans/presentation/plans_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../subscription/presentation/payment_bottom_sheet.dart';
@@ -13,16 +17,16 @@ import '../../subscription/providers/subscription_provider.dart';
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref, AppLanguage lang) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hisobdan chiqish'),
-        content: const Text('Haqiqatan ham hisobingizdan chiqmoqchimisiz?'),
+        title: Text(AppStrings.tr('logout', lang)),
+        content: Text(AppStrings.tr('logout_confirm', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Bekor qilish'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -36,25 +40,23 @@ class ProfileScreen extends ConsumerWidget {
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }
             },
-            child: const Text('Chiqish'),
+            child: Text(AppStrings.tr('logout', lang)),
           ),
         ],
       ),
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref, AppLanguage lang) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hisobni butunlay o\'chirish'),
-        content: const Text(
-          'Hisobingiz, barcha suhbatlaringiz, yuklangan fayllaringiz va ma\'lumotlaringiz butunlay o\'chiriladi. Bu amalni ortga qaytarib bo\'lmaydi.',
-        ),
+        title: Text(AppStrings.tr('profile_delete_dialog_title', lang)),
+        content: Text(AppStrings.tr('profile_delete_dialog_content', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Bekor qilish'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -68,23 +70,21 @@ class ProfileScreen extends ConsumerWidget {
                   await ref.read(authProvider.notifier).deleteAccount();
               if (success) {
                 messenger.showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     backgroundColor: AppColors.primary,
-                    content: Text(
-                      'Hisobingiz va barcha ma\'lumotlaringiz muvaffaqiyatli o\'chirildi.',
-                    ),
+                    content: Text(AppStrings.tr('profile_delete_success', lang)),
                   ),
                 );
               } else {
                 messenger.showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     backgroundColor: Colors.red,
-                    content: Text('Hisobni o\'chirishda xatolik yuz berdi.'),
+                    content: Text(AppStrings.tr('profile_delete_error', lang)),
                   ),
                 );
               }
             },
-            child: const Text('Ha, o\'chirilsin'),
+            child: Text(AppStrings.tr('profile_delete_confirm_btn', lang)),
           ),
         ],
       ),
@@ -93,6 +93,7 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final authState = ref.watch(authProvider);
     final user = authState.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -101,7 +102,7 @@ class ProfileScreen extends ConsumerWidget {
     final isProUser =
         subState.isPro || (entitlementsAsync.value?['is_pro'] == true);
     final planName = entitlementsAsync.value?['plan_name'] as String? ??
-        (isProUser ? 'Pro Obuna' : 'Bepul (Free)');
+        (isProUser ? AppStrings.tr('plan_pro', currentLang) : AppStrings.tr('plan_free', currentLang));
     final remaining =
         entitlementsAsync.value?['daily_requests_remaining'] ?? 40;
     final dailyLimit =
@@ -109,7 +110,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mening Profilim'),
+        title: Text(AppStrings.tr('profile_title', currentLang)),
         centerTitle: false,
       ),
       body: ListView(
@@ -152,7 +153,7 @@ class ProfileScreen extends ConsumerWidget {
                             child: Text(
                               user?.fullName.isNotEmpty == true
                                   ? user!.fullName
-                                  : 'Foydalanuvchi',
+                                  : AppStrings.tr('profile_default_user', currentLang),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -210,7 +211,7 @@ class ProfileScreen extends ConsumerWidget {
 
           // 2. Plan and Subscription Management
           Text(
-            'TARIF VA OBUNA',
+            AppStrings.tr('profile_section_plan', currentLang),
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
@@ -266,11 +267,12 @@ class ProfileScreen extends ConsumerWidget {
                         minimumSize: const Size(0, 0),
                       ),
                       onPressed: () {
+                        UiSoundFeedback.playItemClick();
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => const PlansScreen()),
                         );
                       },
-                      child: const Text('Tariflar jadvali'),
+                      child: Text(AppStrings.tr('profile_plans_table', currentLang)),
                     ),
                   ],
                 ),
@@ -288,7 +290,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Bugungi qolgan so\'rovlar: $remaining / $dailyLimit',
+                  '${AppStrings.tr('profile_daily_remaining', currentLang)} $remaining / $dailyLimit',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -304,11 +306,14 @@ class ProfileScreen extends ConsumerWidget {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    onPressed: () => PaymentBottomSheet.show(context, isPro: true),
+                    onPressed: () {
+                      UiSoundFeedback.playActionClick();
+                      PaymentBottomSheet.show(context, isPro: true);
+                    },
                     icon: const Icon(Icons.bolt_rounded, size: 18),
-                    label: const Text(
-                      'Pro Tarifga O\'tish',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      AppStrings.tr('profile_upgrade_pro', currentLang),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -320,7 +325,7 @@ class ProfileScreen extends ConsumerWidget {
 
           // 3. Settings Navigation Menu Tile (Settings inside Profile)
           Text(
-            'ILOVA SOZLAMALARI',
+            AppStrings.tr('profile_section_settings', currentLang),
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
@@ -331,14 +336,76 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkCard : AppColors.lightCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
+
+          // Language Selector Tile (Priority Item)
+          Material(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
                 color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               ),
+              borderRadius: BorderRadius.circular(16),
             ),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.translate_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              title: Text(
+                AppStrings.tr('profile_language_tile', currentLang),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.lightTextPrimary,
+                ),
+              ),
+              subtitle: Text(
+                '${AppStrings.tr('profile_language_desc', currentLang)}${currentLang.flag} ${currentLang.label}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Colors.grey,
+              ),
+              onTap: () {
+                UiSoundFeedback.playItemClick();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LanguageSelectionScreen(isStandalone: true),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Settings Screen Tile
+          Material(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
@@ -353,7 +420,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               title: Text(
-                'Sozlamalar va Konfiguratsiya',
+                AppStrings.tr('profile_settings_tile', currentLang),
                 style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w600,
@@ -363,7 +430,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               subtitle: Text(
-                'API manzili, ko\'rinish mavzusi va ovoz effektlari',
+                AppStrings.tr('profile_settings_desc', currentLang),
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark
@@ -377,9 +444,71 @@ class ProfileScreen extends ConsumerWidget {
                 color: Colors.grey,
               ),
               onTap: () {
+                UiSoundFeedback.playItemClick();
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const SettingsScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Onboarding Tour Guide Tile
+          Material(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  color: Color(0xFF8B5CF6),
+                  size: 20,
+                ),
+              ),
+              title: Text(
+                AppStrings.tr('profile_app_presentation', currentLang),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.lightTextPrimary,
+                ),
+              ),
+              subtitle: Text(
+                AppStrings.tr('profile_app_presentation_desc', currentLang),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Colors.grey,
+              ),
+              onTap: () {
+                UiSoundFeedback.playItemClick();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => OnboardingScreen(
+                      onFinished: () => Navigator.of(context).pop(),
+                    ),
                   ),
                 );
               },
@@ -390,7 +519,7 @@ class ProfileScreen extends ConsumerWidget {
 
           // 4. Security & Account Actions
           Text(
-            'XAVFSIZLIK VA HISOB AMALLARI',
+            AppStrings.tr('profile_section_security', currentLang),
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.bold,
@@ -401,14 +530,15 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkCard : AppColors.lightCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
+          Material(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
                 color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               ),
+              borderRadius: BorderRadius.circular(16),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 ListTile(
@@ -417,15 +547,15 @@ class ProfileScreen extends ConsumerWidget {
                     color: AppColors.error,
                     size: 20,
                   ),
-                  title: const Text(
-                    'Hisobdan chiqish',
-                    style: TextStyle(
+                  title: Text(
+                    AppStrings.tr('logout', currentLang),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.error,
                     ),
                   ),
-                  onTap: () => _showLogoutDialog(context, ref),
+                  onTap: () => _showLogoutDialog(context, ref, currentLang),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -433,9 +563,9 @@ class ProfileScreen extends ConsumerWidget {
                     Icons.privacy_tip_outlined,
                     size: 20,
                   ),
-                  title: const Text(
-                    'Maxfiylik siyosati (Privacy Policy)',
-                    style: TextStyle(fontSize: 13.5),
+                  title: Text(
+                    AppStrings.tr('profile_privacy_policy', currentLang),
+                    style: const TextStyle(fontSize: 13.5),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                   onTap: () {
@@ -445,8 +575,10 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Maxfiylik siyosati havolasi nusxalandi (https://cognidoc.ai/privacy-policy)'),
+                      SnackBar(
+                        content: Text(
+                          '${AppStrings.tr('profile_copied_link', currentLang)} (https://cognidoc.ai/privacy-policy)',
+                        ),
                       ),
                     );
                   },
@@ -457,9 +589,9 @@ class ProfileScreen extends ConsumerWidget {
                     Icons.description_outlined,
                     size: 20,
                   ),
-                  title: const Text(
-                    'Foydalanish shartlari (Terms of Service)',
-                    style: TextStyle(fontSize: 13.5),
+                  title: Text(
+                    AppStrings.tr('profile_terms_service', currentLang),
+                    style: const TextStyle(fontSize: 13.5),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                   onTap: () {
@@ -469,8 +601,10 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Foydalanish shartlari havolasi nusxalandi (https://cognidoc.ai/terms)'),
+                      SnackBar(
+                        content: Text(
+                          '${AppStrings.tr('profile_copied_link', currentLang)} (https://cognidoc.ai/terms)',
+                        ),
                       ),
                     );
                   },
@@ -482,14 +616,14 @@ class ProfileScreen extends ConsumerWidget {
                     color: Colors.grey,
                     size: 20,
                   ),
-                  title: const Text(
-                    'Hisobni butunlay o\'chirish',
-                    style: TextStyle(
+                  title: Text(
+                    AppStrings.tr('profile_delete_account', currentLang),
+                    style: const TextStyle(
                       fontSize: 13.5,
                       color: Colors.grey,
                     ),
                   ),
-                  onTap: () => _showDeleteAccountDialog(context, ref),
+                  onTap: () => _showDeleteAccountDialog(context, ref, currentLang),
                 ),
               ],
             ),

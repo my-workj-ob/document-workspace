@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_sound_feedback.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 
@@ -28,6 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
+    UiSoundFeedback.playActionClick();
 
     await ref
         .read(authProvider.notifier)
@@ -37,13 +40,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
@@ -52,6 +56,90 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Top Bar: Language Switcher
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: PopupMenuButton<AppLanguage>(
+                        initialValue: currentLang,
+                        tooltip: AppStrings.tr('settings_language', currentLang),
+                        onSelected: (lang) {
+                          UiSoundFeedback.playItemClick();
+                          ref
+                              .read(appLanguageProvider.notifier)
+                              .setLanguage(lang);
+                        },
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.primary.withOpacity(0.25),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(currentLang.flag,
+                                  style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 4),
+                              Text(
+                                currentLang.code.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
+                            ],
+                          ),
+                        ),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: AppLanguage.uz,
+                            child: Row(
+                              children: [
+                                Text('🇺🇿', style: TextStyle(fontSize: 16)),
+                                SizedBox(width: 8),
+                                Text('O\'zbekcha'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: AppLanguage.en,
+                            child: Row(
+                              children: [
+                                Text('🇬🇧', style: TextStyle(fontSize: 16)),
+                                SizedBox(width: 8),
+                                Text('English'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: AppLanguage.ru,
+                            child: Row(
+                              children: [
+                                Text('🇷🇺', style: TextStyle(fontSize: 16)),
+                                SizedBox(width: 8),
+                                Text('Русский'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
                     // Brand Logo & Title
                     Center(
                       child: Container(
@@ -66,7 +154,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         child: const Icon(
-                          Icons.chat_bubble_rounded,
+                          Icons.school_rounded,
                           color: AppColors.primary,
                           size: 32,
                         ),
@@ -74,11 +162,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'The Go-getters',
+                      'Cognidoc AI',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
                         color: isDark
                             ? AppColors.darkTextPrimary
                             : AppColors.lightTextPrimary,
@@ -86,16 +175,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'AI Tadqiqotchi Yordamchisi',
+                      AppStrings.tr('auth_login_subtitle', currentLang),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.lightTextSecondary,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
 
                     // Error Banner
                     if (authState.errorMessage != null) ...[
@@ -136,9 +225,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Email Field
                     Text(
-                      'Email manzili',
+                      AppStrings.tr('auth_email_label', currentLang),
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: isDark
                             ? AppColors.darkTextPrimary
@@ -150,19 +239,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        hintText: 'user@example.com',
-                        prefixIcon: Icon(
+                      decoration: InputDecoration(
+                        hintText: AppStrings.tr('auth_email_hint', currentLang),
+                        prefixIcon: const Icon(
                           Icons.alternate_email_rounded,
                           size: 20,
                         ),
                       ),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Emailni kiriting';
+                          return AppStrings.tr(
+                              'auth_val_email_empty', currentLang);
                         }
                         if (!val.contains('@')) {
-                          return 'Yaroqli email kiriting';
+                          return AppStrings.tr(
+                              'auth_val_email_invalid', currentLang);
                         }
                         return null;
                       },
@@ -171,9 +262,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Password Field
                     Text(
-                      'Parol',
+                      AppStrings.tr('auth_password_label', currentLang),
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: isDark
                             ? AppColors.darkTextPrimary
@@ -206,10 +297,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       validator: (val) {
                         if (val == null || val.isEmpty) {
-                          return 'Parolni kiriting';
+                          return AppStrings.tr(
+                              'auth_password_label', currentLang);
                         }
                         if (val.length < 8) {
-                          return 'Kamida 8 ta belgi bo\'lishi kerak';
+                          return AppStrings.tr(
+                              'auth_val_pwd_short', currentLang);
                         }
                         return null;
                       },
@@ -219,16 +312,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     // Login Button
                     ElevatedButton(
                       onPressed: authState.isLoading ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                       child: authState.isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.black,
+                                color: Colors.white,
                               ),
                             )
-                          : const Text('Kirish'),
+                          : Text(
+                              AppStrings.tr('auth_login_btn', currentLang),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 20),
 
@@ -237,7 +342,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Hisobingiz yo\'qmi? ',
+                          AppStrings.tr('auth_no_account', currentLang),
                           style: TextStyle(
                             fontSize: 13,
                             color: isDark
@@ -253,9 +358,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            'Ro\'yxatdan o\'tish',
-                            style: TextStyle(
+                          child: Text(
+                            AppStrings.tr('auth_sign_up_link', currentLang),
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,

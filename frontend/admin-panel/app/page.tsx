@@ -123,17 +123,27 @@ export default function AdminHome() {
       const auth = object(body.data);
       if (typeof auth.access_token !== "string") throw new Error("Autentifikatsiya javobida access token topilmadi.");
       const accessToken = auth.access_token;
+      const sessionRefresh = text(auth.refresh_token, "");
       const check = await fetch(`${API_BASE}/api/v1/admin/overview`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
-      if (check.status === 403) throw new Error("Bu hisobga admin ruxsati berilmagan.");
+      if (check.status === 403) {
+        if (sessionRefresh) {
+          await fetch(`${API_BASE}/api/v1/auth/logout`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: sessionRefresh }),
+          });
+        }
+        throw new Error("Bu hisobga admin ruxsati berilmagan.");
+      }
       if (!check.ok) {
         const checkBody = object(await check.json());
         throw new Error(apiError(checkBody, "Admin sessiyasini tekshirib bo‘lmadi."));
       }
       setToken(accessToken);
-      setRefreshToken(text(auth.refresh_token, ""));
+      setRefreshToken(sessionRefresh);
       setPassword("");
     } catch (reason) {
       setLoginError(reason instanceof Error ? reason.message : "Kirish amalga oshmadi.");

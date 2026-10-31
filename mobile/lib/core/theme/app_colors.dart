@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// App color tokens matching The Go-getters web design and modern mobile reference.
+/// App color tokens for the Cognidoc AI mobile experience.
 class AppColors {
   // Brand accents
   static const Color primary = Color(0xFF00D26A); // Vibrant Mint Green

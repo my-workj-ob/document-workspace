@@ -30,14 +30,17 @@ class ConversationsNotifier
   }
 
   Future<void> loadConversations() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
     try {
       final data = await _apiClient.get('/api/v1/conversations');
+      if (!mounted) return;
       final list = (data as List)
           .map((json) => Conversation.fromJson(json))
           .toList();
       state = AsyncValue.data(list);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
@@ -53,6 +56,7 @@ class ConversationsNotifier
       );
       final newConv = Conversation.fromJson(data);
 
+      if (!mounted) return newConv;
       final current = state.value ?? [];
       state = AsyncValue.data([newConv, ...current]);
       return newConv;
@@ -69,6 +73,7 @@ class ConversationsNotifier
       );
       final updated = Conversation.fromJson(data);
 
+      if (!mounted) return true;
       final current = state.value ?? [];
       state = AsyncValue.data(
         current.map((c) => c.id == convID ? updated : c).toList(),
@@ -82,6 +87,7 @@ class ConversationsNotifier
   Future<bool> deleteConversation(String convID) async {
     try {
       await _apiClient.delete('/api/v1/conversations/$convID');
+      if (!mounted) return true;
       final current = state.value ?? [];
       state = AsyncValue.data(current.where((c) => c.id != convID).toList());
       return true;
@@ -95,6 +101,7 @@ class ConversationsNotifier
     DateTime time, {
     String? newTitle,
   }) {
+    if (!mounted) return;
     final current = state.value;
     if (current == null) return;
 
@@ -110,6 +117,7 @@ class ConversationsNotifier
 
     // Re-sort by latest message
     updated.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+    if (!mounted) return;
     state = AsyncValue.data(updated);
   }
 }

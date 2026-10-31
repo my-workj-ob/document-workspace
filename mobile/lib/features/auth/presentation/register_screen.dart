@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/ui_sound_feedback.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -29,6 +31,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
+    UiSoundFeedback.playActionClick();
 
     final success = await ref
         .read(authProvider.notifier)
@@ -45,10 +48,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ro\'yxatdan o\'tish')),
+      appBar: AppBar(
+        title: Text(
+          AppStrings.tr('auth_register_title', currentLang),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -62,10 +71,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Yangi hisob yaratish',
+                      AppStrings.tr('auth_register_title', currentLang),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
                         color: isDark
                             ? AppColors.darkTextPrimary
                             : AppColors.lightTextPrimary,
@@ -73,9 +83,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'AI yordamchisi bilan suhbatlarni boshlang',
+                      AppStrings.tr('auth_register_subtitle', currentLang),
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.lightTextSecondary,
@@ -122,9 +132,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                     // Full Name Field
                     Text(
-                      'To\'liq ismingiz',
+                      AppStrings.tr('auth_fullname_label', currentLang),
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: isDark
                             ? AppColors.darkTextPrimary
@@ -135,16 +145,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _nameController,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        hintText: 'Sardor Rahimov',
-                        prefixIcon: Icon(
+                      decoration: InputDecoration(
+                        hintText: AppStrings.tr('auth_fullname_hint', currentLang),
+                        prefixIcon: const Icon(
                           Icons.person_outline_rounded,
                           size: 20,
                         ),
                       ),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Ismingizni kiriting';
+                          return AppStrings.tr('auth_val_name_empty', currentLang);
                         }
                         return null;
                       },
@@ -153,9 +163,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                     // Email Field
                     Text(
-                      'Email manzili',
+                      AppStrings.tr('auth_email_label', currentLang),
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: isDark
                             ? AppColors.darkTextPrimary
@@ -167,19 +177,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        hintText: 'user@example.com',
-                        prefixIcon: Icon(
+                      decoration: InputDecoration(
+                        hintText: AppStrings.tr('auth_email_hint', currentLang),
+                        prefixIcon: const Icon(
                           Icons.alternate_email_rounded,
                           size: 20,
                         ),
                       ),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Emailni kiriting';
+                          return AppStrings.tr('auth_val_email_empty', currentLang);
                         }
                         if (!val.contains('@')) {
-                          return 'Yaroqli email kiriting';
+                          return AppStrings.tr('auth_val_email_invalid', currentLang);
                         }
                         return null;
                       },
@@ -188,9 +198,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                     // Password Field
                     Text(
-                      'Parol (kamida 8 ta belgi)',
+                      AppStrings.tr('auth_password_label', currentLang),
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: isDark
                             ? AppColors.darkTextPrimary
@@ -223,10 +233,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       validator: (val) {
                         if (val == null || val.isEmpty) {
-                          return 'Parolni kiriting';
+                          return AppStrings.tr('auth_password_label', currentLang);
                         }
                         if (val.length < 8) {
-                          return 'Kamida 8 ta belgidan iborat bo\'lishi kerak';
+                          return AppStrings.tr('auth_val_pwd_short', currentLang);
                         }
                         return null;
                       },
@@ -236,16 +246,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     // Submit Button
                     ElevatedButton(
                       onPressed: authState.isLoading ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                       child: authState.isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.black,
+                                color: Colors.white,
                               ),
                             )
-                          : const Text('Hisob yaratish'),
+                          : Text(
+                              AppStrings.tr('auth_register_btn', currentLang),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ],
                 ),

@@ -26,6 +26,12 @@ mobile/android/app/debug/
 mobile/android/app/profile/
 mobile/android/app/release/
 
+# Next.js
+frontend/**/node_modules/
+frontend/**/.next/
+frontend/**/out/
+frontend/**/next-env.d.ts.tmp
+
 # IDE & Editor files
 .idea/
 .vscode/

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../chat/providers/models_provider.dart';
 import '../../subscription/presentation/payment_bottom_sheet.dart';
@@ -28,7 +29,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
     PaymentBottomSheet.show(context, isPro: isPro);
   }
 
-  Future<void> _handleRestore() async {
+  Future<void> _handleRestore(AppLanguage lang) async {
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
 
@@ -39,16 +40,16 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
 
       if (isRestored) {
         messenger.showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppColors.primary,
-            content: Text('Xaridlar muvaffaqiyatli tiklandi!'),
+            content: Text(AppStrings.tr('plans_restore_success', lang)),
           ),
         );
         ref.invalidate(userEntitlementsProvider);
       } else {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Faol xaridlar topilmadi.'),
+          SnackBar(
+            content: Text(AppStrings.tr('plans_restore_not_found', lang)),
           ),
         );
       }
@@ -56,7 +57,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         messenger.showSnackBar(
-          SnackBar(content: Text('Xaridlarni tiklashda xatolik: $e')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
@@ -71,19 +72,20 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
       setState(() => _isLoading = false);
       if (success) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Bepul tarifga o\'tkazildi.')),
+          const SnackBar(content: Text('Free plan activated')),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        messenger.showSnackBar(SnackBar(content: Text('Xatolik: $e')));
+        messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final plansAsync = ref.watch(plansListProvider);
     final entitlementsAsync = ref.watch(userEntitlementsProvider);
@@ -96,13 +98,16 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tarif Rejalari'),
+        title: Text(AppStrings.tr('plans_title', currentLang)),
         centerTitle: true,
         actions: [
           TextButton.icon(
-            onPressed: _isLoading ? null : _handleRestore,
+            onPressed: _isLoading ? null : () => _handleRestore(currentLang),
             icon: const Icon(Icons.restore_rounded, size: 18),
-            label: const Text('Tiklash', style: TextStyle(fontSize: 13)),
+            label: Text(
+              AppStrings.tr('plans_restore_btn', currentLang),
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ],
       ),
@@ -112,7 +117,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
             (p) => !p.isPro,
             orElse: () => const PlanModel(
               id: 'free',
-              name: 'Bepul (Free)',
+              name: 'Free',
               description: 'Boshlang\'ich tarif',
               dailyRequests: 40,
               monthlyTokens: 100000,
@@ -166,12 +171,90 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
 
           final isUltraUser = entitlementsAsync.value?['plan_id'] == 'ultra';
 
+          final freeFeatures = currentLang == AppLanguage.uz
+              ? const [
+                  'Kunlik 40 ta tezkor savol-javob',
+                  '10 MB gacha darslik va PDF tahlili',
+                  'Rasmlar va vizual ma\'lumotlarni tushunish',
+                  'Suhbatlar tarixi va kontekst xotirasi',
+                  'Standart server navbati',
+                ]
+              : currentLang == AppLanguage.ru
+                  ? const [
+                      '40 быстрых ответов в день',
+                      'Анализ учебников и PDF до 10 МБ',
+                      'Распознавание изображений и схем',
+                      'История диалогов и сохранение контекста',
+                      'Стандартная очередь обработки',
+                    ]
+                  : const [
+                      '40 daily fast Q&A requests',
+                      'Textbook & PDF analysis up to 10 MB',
+                      'Image & visual diagram understanding',
+                      'Full conversation history & context',
+                      'Standard processing queue',
+                    ];
+
+          final proFeatures = currentLang == AppLanguage.uz
+              ? const [
+                  'Kunlik 400 ta so\'rov (10 barobar ko\'proq)',
+                  'Ilg\'or fikrlash va chuqur tahlil intellekti',
+                  '50 MB gacha katta hujjatlar va PDF tahlili',
+                  'Sahifama-sahifa aniq manbalar (Citations)',
+                  'Bir vaqtning o\'zida 3 ta parallel suhbat',
+                  'Yuqori server ustuvorligi (Tezkor javoblar)',
+                ]
+              : currentLang == AppLanguage.ru
+                  ? const [
+                      '400 запросов в день (в 10 раз больше)',
+                      'Продвинутый логический анализ и рассуждения',
+                      'Анализ крупных книг и PDF до 50 МБ',
+                      'Постраничные точные цитаты без выдумок',
+                      '3 параллельных активных потока',
+                      'Максимальный приоритет скорости на сервере',
+                    ]
+                  : const [
+                      '400 daily requests (10x capacity)',
+                      'Advanced reasoning & deep synthesis',
+                      'Up to 50 MB textbook & book analysis',
+                      'Exact page-by-page verifiable citations',
+                      '3 parallel active streams',
+                      'High server priority & zero latency',
+                    ];
+
+          final ultraFeatures = currentLang == AppLanguage.uz
+              ? const [
+                  'Kunlik 1,200 ta cheksiz darajadagi so\'rov',
+                  '200 MB gacha ulkan hajmdagi kitoblar',
+                  'To\'liq multimodal (hujjat, rasm va media tahlili)',
+                  'Bir vaqtning o\'zida 10 ta parallel oqim',
+                  'Eng yuqori navbat ustuvorligi (Zero-wait queue)',
+                  'Maksimal kontekst hajmi va chuqur qidiruv',
+                ]
+              : currentLang == AppLanguage.ru
+                  ? const [
+                      '1 200 запросов в день для исследователей',
+                      'Огромные архивы книг и документов до 200 МБ',
+                      'Полный мультимодальный анализ (текст, формулы, фото)',
+                      'До 10 параллельных рабочих процессов',
+                      'Мгновенная обработка без очередей',
+                      'Максимальное контекстное окно и поиск',
+                    ]
+                  : const [
+                      '1,200 requests/day for power researchers',
+                      'Gigantic books and documents up to 200 MB',
+                      'Full multimodal reasoning (docs, charts, photos)',
+                      'Up to 10 concurrent research sessions',
+                      'Zero-wait priority processing queue',
+                      'Maximum context window & deep semantic search',
+                    ];
+
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             children: [
               // Header description
               Text(
-                'AI IMKONIYATLARINI OCHING',
+                AppStrings.tr('plans_header_label', currentLang),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -182,9 +265,9 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'O\'zingizga mos tarifni tanlang. Istalgan vaqtda Google Play orqali yangilash yoki bekor qilish mumkin.',
-                style: TextStyle(fontSize: 14, height: 1.4),
+              Text(
+                AppStrings.tr('plans_header_desc', currentLang),
+                style: const TextStyle(fontSize: 14, height: 1.4),
               ),
 
               const SizedBox(height: 16),
@@ -236,9 +319,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isUltraUser
-                                  ? 'Sizning tarifingiz: ULTRA'
-                                  : (isProUser ? 'Sizning tarifingiz: PRO' : 'Sizning tarifingiz: BEPUL'),
+                              '${AppStrings.tr('plans_current_prefix', currentLang)}${isUltraUser ? 'ULTRA' : (isProUser ? 'PRO' : 'FREE')}',
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
@@ -246,7 +327,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Bugungi limit: $remainingRequests / $dailyLimit so\'rov qoldi',
+                              '${AppStrings.tr('profile_daily_remaining', currentLang)} $remainingRequests / $dailyLimit',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark
@@ -270,14 +351,10 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                 plan: freePlan,
                 isCurrentPlan: !isProUser && !isUltraUser,
                 isHighlighted: false,
-                features: const [
-                  'Kunlik 40 ta tezkor savol-javob',
-                  '10 MB gacha hujjatlar va PDF tahlili',
-                  'Rasmlar va vizual ma\'lumotlarni tushunish',
-                  'Suhbatlar tarixi va kontekst xotirasi',
-                  'Standart server navbati',
-                ],
-                buttonText: !isProUser && !isUltraUser ? 'Joriy Faol Reja' : 'Bepul Tarifga O\'tish (Test)',
+                features: freeFeatures,
+                buttonText: !isProUser && !isUltraUser
+                    ? AppStrings.tr('plan_current', currentLang)
+                    : 'Free',
                 onPressed: (isProUser || isUltraUser) ? _handleResetToFree : null,
               ),
 
@@ -289,18 +366,11 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                 plan: proPlan,
                 isCurrentPlan: isProUser && !isUltraUser,
                 isHighlighted: true,
-                badgeText: 'ENG TAVSIYA ETILADI',
-                features: const [
-                  'Kunlik 400 ta so\'rov (10 barobar ko\'proq)',
-                  'Ilg\'or fikrlash va chuqur tahlil intellekti',
-                  '50 MB gacha katta hujjatlar va PDF tahlili',
-                  'Sahifama-sahifa aniq manbalar (Citations)',
-                  'Bir vaqtning o\'zida 3 ta parallel suhbat',
-                  'Yuqori server ustuvorligi (Tezkor javoblar)',
-                ],
+                badgeText: AppStrings.tr('plans_recommended_badge', currentLang),
+                features: proFeatures,
                 buttonText: isProUser && !isUltraUser
-                    ? 'Joriy Faol Reja'
-                    : 'Pro Tarifini Tanlash (\$9.99 / oy)',
+                    ? AppStrings.tr('plan_current', currentLang)
+                    : AppStrings.tr('plans_choose_pro_btn', currentLang),
                 isLoading: _isLoading,
                 onPressed: () => _openCheckout(true),
               ),
@@ -313,18 +383,11 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                 plan: ultraPlan,
                 isCurrentPlan: isUltraUser,
                 isHighlighted: false,
-                badgeText: 'PROFESSIONAL',
-                features: const [
-                  'Kunlik 1,200 ta cheksiz darajadagi so\'rov',
-                  '200 MB gacha ulkan hajmdagi hujjatlar va kitoblar',
-                  'To\'liq multimodal (hujjat, rasm va media tahlili)',
-                  'Bir vaqtning o\'zida 10 ta parallel oqim',
-                  'Eng yuqori navbat ustuvorligi (Zero-wait queue)',
-                  'Maksimal kontekst hajmi va chuqur qidiruv',
-                ],
+                badgeText: AppStrings.tr('plans_professional_badge', currentLang),
+                features: ultraFeatures,
                 buttonText: isUltraUser
-                    ? 'Joriy Faol Reja'
-                    : 'Ultra Tarifini Tanlash (\$24.99 / oy)',
+                    ? AppStrings.tr('plan_current', currentLang)
+                    : AppStrings.tr('plans_choose_ultra_btn', currentLang),
                 isLoading: _isLoading,
                 onPressed: () => _openCheckout(false),
               ),
@@ -334,7 +397,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Tariflarni yuklashda xatolik: $err')),
+        error: (err, _) => Center(child: Text('Error: $err')),
       ),
     );
   }
@@ -356,10 +419,6 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
         .replaceAll(RegExp(r'\s*\(\$[^)]+\)'), '')
         .replaceAll(RegExp(r'\s*\(Free\)', caseSensitive: false), '')
         .trim();
-
-    final cleanDescription = plan.id == 'pro' && plan.description.contains('32k')
-        ? '1,000 sahifagacha bo\'lgan kitob va hujjatlarni bir zumda tahlil qilish, sahifama-sahifa aniq manbalar (Citations)'
-        : plan.description;
 
     return Material(
       color: isHighlighted
@@ -426,14 +485,6 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              cleanDescription,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
             ),
             const SizedBox(height: 16),
             const Divider(),

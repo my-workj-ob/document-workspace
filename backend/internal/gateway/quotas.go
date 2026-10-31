@@ -206,7 +206,7 @@ func (q *QuotaService) SettleUsage(
 
 	_, err := q.pool.Exec(ctx, `
 		UPDATE usage_ledger
-		SET input_tokens = $1, output_tokens = $2, actual_cost_usd = $3, 
+		SET input_tokens = $1, output_tokens = $2, estimated_cost_usd = $3,
 		    status = 'settled', updated_at = CURRENT_TIMESTAMP
 		WHERE id = $4
 	`, inTokens, outTokens, totalCost, ledgerID)

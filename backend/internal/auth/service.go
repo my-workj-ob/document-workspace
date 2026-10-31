@@ -64,15 +64,23 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest, userAgent, 
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	locale := "uz"
+	if req.Locale != "" {
+		locale = strings.ToLower(strings.TrimSpace(req.Locale))
+		if locale != "uz" && locale != "en" && locale != "ru" {
+			locale = "uz"
+		}
+	}
+
 	// Insert into DB
 	var user User
 	if s.pool != nil {
 		err = s.pool.QueryRow(ctx, `
-			INSERT INTO users (email, password_hash, full_name, status)
-			VALUES ($1, $2, $3, 'active')
-			RETURNING id, email, password_hash, full_name, status, created_at, updated_at
-		`, email, string(pwdHash), fullName).Scan(
-			&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+			INSERT INTO users (email, password_hash, full_name, locale, status)
+			VALUES ($1, $2, $3, $4, 'active')
+			RETURNING id, email, password_hash, full_name, COALESCE(locale, 'uz'), status, created_at, updated_at
+		`, email, string(pwdHash), fullName, locale).Scan(
+			&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.Locale, &user.Status, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), "idx_users_email_unique") || strings.Contains(err.Error(), "duplicate key") {
@@ -87,6 +95,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest, userAgent, 
 			Email:        email,
 			PasswordHash: string(pwdHash),
 			FullName:     fullName,
+			Locale:       locale,
 			Status:       "active",
 			CreatedAt:    now,
 			UpdatedAt:    now,
@@ -106,11 +115,11 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ip str
 	var user User
 	if s.pool != nil {
 		err := s.pool.QueryRow(ctx, `
-			SELECT id, email, password_hash, full_name, status, created_at, updated_at
+			SELECT id, email, password_hash, full_name, COALESCE(locale, 'uz'), status, created_at, updated_at
 			FROM users
 			WHERE LOWER(email) = $1
 		`, email).Scan(
-			&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+			&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.Locale, &user.Status, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -132,6 +141,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ip str
 			ID:        "user-" + email,
 			Email:     email,
 			FullName:  email,
+			Locale:    "uz",
 			Status:    "active",
 			CreatedAt: now,
 			UpdatedAt: now,
@@ -216,11 +226,11 @@ func (s *Service) DeleteUser(ctx context.Context, userID string) error {
 func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	var user User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, password_hash, full_name, status, created_at, updated_at
+		SELECT id, email, password_hash, full_name, COALESCE(locale, 'uz'), status, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`, userID).Scan(
-		&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.Locale, &user.Status, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -229,6 +239,23 @@ func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error)
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 	return &user, nil
+}
+
+// UpdateLocale persists the user's preferred language across devices.
+func (s *Service) UpdateLocale(ctx context.Context, userID, locale string) error {
+	if s.pool == nil {
+		return nil
+	}
+	clean := strings.ToLower(strings.TrimSpace(locale))
+	if clean != "uz" && clean != "en" && clean != "ru" {
+		clean = "uz"
+	}
+	_, err := s.pool.Exec(ctx, `
+		UPDATE users
+		SET locale = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2::uuid
+	`, clean, userID)
+	return err
 }
 
 func (s *Service) generateAuthSession(ctx context.Context, user *User, userAgent, ip string) (*AuthResponse, error) {
@@ -271,6 +298,7 @@ func (s *Service) generateAuthSession(ctx context.Context, user *User, userAgent
 			ID:        user.ID,
 			Email:     user.Email,
 			FullName:  user.FullName,
+			Locale:    user.Locale,
 			CreatedAt: user.CreatedAt,
 		},
 		AccessToken:  signedAccess,

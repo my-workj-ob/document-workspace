@@ -2,11 +2,13 @@ class UserProfile {
   final String id;
   final String email;
   final String fullName;
+  final String locale;
 
   const UserProfile({
     required this.id,
     required this.email,
     required this.fullName,
+    this.locale = 'uz',
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -14,6 +16,7 @@ class UserProfile {
       id: json['id'] ?? '',
       email: json['email'] ?? '',
       fullName: json['full_name'] ?? '',
+      locale: json['locale'] ?? 'uz',
     );
   }
 
@@ -21,6 +24,7 @@ class UserProfile {
     'id': id,
     'email': email,
     'full_name': fullName,
+    'locale': locale,
   };
 }
 

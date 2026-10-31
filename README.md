@@ -1,4 +1,4 @@
-# The Go-getters — Professional AI Chat Mobile App & Go Backend
+# Cognidoc AI — AI Hujjat Yordamchisi
 
 [![Go](https://img.shields.io/badge/Go-1.27-blue.svg)](https://golang.org)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47.6-02569B.svg)](https://flutter.dev)
@@ -7,7 +7,7 @@
 
 A production-oriented AI Chat mobile application and Go backend built with clean architecture, PostgreSQL persistence (Neon serverless ready), real Server-Sent Events (SSE) streaming, server-side configurable LLM provider integration, and authenticated conversation management.
 
-Designed to match **The Go-getters** brand aesthetics (Dark & Light themes with Mint/Emerald accents) and modern mobile UI standards.
+Includes a Flutter mobile app, Go API, PostgreSQL persistence, SaaS admin panel, and SEO-focused public website.
 
 ---
 
@@ -15,6 +15,9 @@ Designed to match **The Go-getters** brand aesthetics (Dark & Light themes with 
 
 ```
 document-workspace/
+├── frontend/
+│   ├── admin-panel/                # Next.js SaaS metrics and billing admin
+│   └── web-site/                   # Next.js SEO landing page
 ├── mobile/                        # Flutter Mobile Application
 │   ├── lib/
 │   │   ├── app/                   # App root and navigation shell
@@ -22,7 +25,7 @@ document-workspace/
 │   │   │   ├── config/            # Platform-aware API configuration
 │   │   │   ├── errors/            # Typed application exceptions
 │   │   │   ├── network/           # ApiClient and SSEClient
-│   │   │   ├── theme/             # Go-getters Dark and Light Theme tokens
+│   │   │   ├── theme/             # Cognidoc AI dark and light theme tokens
 │   │   │   └── utils/             # Date and time formatters
 │   │   ├── features/
 │   │   │   ├── auth/              # Login, Register, secure token storage
@@ -77,12 +80,17 @@ document-workspace/
    - Configurable at the backend level (`AI_PROVIDER_BASE_URL`, `AI_API_KEY`, `AI_MODEL`).
    - Compatible with OpenAI, Groq, OpenRouter, DeepSeek, or local Ollama.
    - If unconfigured, returns an actionable `AI_PROVIDER_NOT_CONFIGURED` error (zero fake responses).
-5. **Modern The Go-getters Theme**:
+5. **Modern Cognidoc AI Theme**:
    - Dark mode (`#0D1117` obsidian background, `#161B22` cards, mint green accents).
    - Light mode (`#F8FAFC` clean background, `#FFFFFF` cards).
    - Explore dashboard with 8 categorized prompts (Art, Booking, Code, Content, Entertainment, Translator, Health, Music).
    - Pulsing hero bubble: "Salom, [Name] 👋 / Suhbatni boshlash".
    - Markdown rendering with syntax highlighting and code copy buttons.
+6. **Admin analytics and public web presence**:
+   - Admin-only, database-authorized usage, user, subscription, model, and system metrics.
+   - No chat contents in admin views; audit entries cover admin data access.
+   - Payment revenue and provider balances remain unavailable unless a verified billing integration supplies them.
+   - See [docs/admin-panel.md](./docs/admin-panel.md) for role provisioning, setup, and metric definitions.
 
 ---
 

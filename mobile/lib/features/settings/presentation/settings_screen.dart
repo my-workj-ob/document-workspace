@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/api_config.dart';
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/ui_sound_feedback.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../chat/providers/models_provider.dart';
 import '../../plans/presentation/plans_screen.dart';
@@ -32,16 +34,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.dispose();
   }
 
-  void _showLogoutDialog() {
+  void _showLogoutDialog(AppLanguage lang) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hisobdan chiqish'),
-        content: const Text('Haqiqatan ham hisobingizdan chiqmoqchimisiz?'),
+        title: Text(AppStrings.tr('logout', lang)),
+        content: Text(AppStrings.tr('logout_confirm', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Bekor qilish'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -55,7 +57,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }
             },
-            child: const Text('Chiqish'),
+            child: Text(AppStrings.tr('logout', lang)),
           ),
         ],
       ),
@@ -70,16 +72,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     final authState = ref.watch(authProvider);
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sozlamalar')),
+      appBar: AppBar(
+        title: Text(AppStrings.tr('settings_title', currentLang)),
+        centerTitle: false,
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         children: [
-          // Section: Plan & Subscription (RevenueCat & Google Play) - Priority Top
+          // Section: Plan & Subscription
           Text(
-            'TARIF VA OBUNA ',
+            AppStrings.tr('profile_section_plan', currentLang),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -94,9 +100,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             builder: (ctx) {
               final entitlementsAsync = ref.watch(userEntitlementsProvider);
               final subState = ref.watch(subscriptionProvider);
-              final isProUser = subState.isPro || (entitlementsAsync.value?['is_pro'] == true);
+              final isProUser =
+                  subState.isPro || (entitlementsAsync.value?['is_pro'] == true);
               final planName = entitlementsAsync.value?['plan_name'] as String? ??
-                  (isProUser ? 'Pro Obuna' : 'Bepul (Free)');
+                  (isProUser
+                      ? AppStrings.tr('plan_pro', currentLang)
+                      : AppStrings.tr('plan_free', currentLang));
               final remaining =
                   entitlementsAsync.value?['daily_requests_remaining'] ?? 40;
               final dailyLimit =
@@ -148,9 +157,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             color: isProUser
                                 ? Colors.amber.withOpacity(0.2)
                                 : Colors.green.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isProUser ? 'PRO FAOL' : 'BEPUL',
+                            isProUser
+                                ? AppStrings.tr('settings_pro_active', currentLang)
+                                : AppStrings.tr('settings_free_badge', currentLang),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -162,7 +174,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Bugungi limit: $remaining / $dailyLimit so\'rov qoldi',
+                      '${AppStrings.tr('profile_daily_remaining', currentLang)} $remaining / $dailyLimit',
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark
@@ -178,24 +190,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        onPressed: () => _openCheckout(false),
+                        onPressed: () {
+                          UiSoundFeedback.playActionClick();
+                          _openCheckout(false);
+                        },
                         icon: const Icon(Icons.rocket_launch_rounded, size: 18),
-                        label: const Text('Pro tarifiga o\'tish (Karta / Google Play)'),
+                        label: Text(
+                          AppStrings.tr('settings_upgrade_play_btn', currentLang),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       )
                     else
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        onPressed: () => _openCheckout(true),
-                        icon: const Icon(Icons.workspace_premium_rounded, size: 18, color: Colors.amber),
-                        label: const Text('Obunani boshqarish / Tarifni o\'zgartirish'),
+                        onPressed: () {
+                          UiSoundFeedback.playItemClick();
+                          _openCheckout(true);
+                        },
+                        icon: const Icon(Icons.workspace_premium_rounded,
+                            size: 18, color: Colors.amber),
+                        label: Text(
+                          AppStrings.tr('settings_manage_sub_btn', currentLang),
+                        ),
                       ),
                     const SizedBox(height: 10),
                     TextButton.icon(
-                      onPressed: () => PlansScreen.show(context),
+                      onPressed: () {
+                        UiSoundFeedback.playItemClick();
+                        PlansScreen.show(context);
+                      },
                       icon: const Icon(Icons.tune_rounded, size: 18),
-                      label: const Text('Barcha tariflarni ko\'rish va tanlash'),
+                      label: Text(
+                        AppStrings.tr('settings_view_all_plans', currentLang),
+                      ),
                     ),
                   ],
                 ),
@@ -205,9 +234,80 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 28),
 
+          // Section: App Language (3 Languages: UZ, RU, EN)
+          Text(
+            AppStrings.tr('settings_language', currentLang).toUpperCase(),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Material(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                RadioListTile<AppLanguage>(
+                  title: const Text('🇺🇿 O\'zbekcha'),
+                  subtitle: Text(AppStrings.tr('lang_uz_desc', currentLang)),
+                  value: AppLanguage.uz,
+                  groupValue: currentLang,
+                  activeColor: AppColors.primary,
+                  onChanged: (val) {
+                    if (val != null) {
+                      UiSoundFeedback.playItemClick();
+                      ref.read(appLanguageProvider.notifier).setLanguage(val);
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                RadioListTile<AppLanguage>(
+                  title: const Text('🇷🇺 Русский'),
+                  subtitle: Text(AppStrings.tr('lang_ru_desc', currentLang)),
+                  value: AppLanguage.ru,
+                  groupValue: currentLang,
+                  activeColor: AppColors.primary,
+                  onChanged: (val) {
+                    if (val != null) {
+                      UiSoundFeedback.playItemClick();
+                      ref.read(appLanguageProvider.notifier).setLanguage(val);
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                RadioListTile<AppLanguage>(
+                  title: const Text('🇬🇧 English'),
+                  subtitle: Text(AppStrings.tr('lang_en_desc', currentLang)),
+                  value: AppLanguage.en,
+                  groupValue: currentLang,
+                  activeColor: AppColors.primary,
+                  onChanged: (val) {
+                    if (val != null) {
+                      UiSoundFeedback.playItemClick();
+                      ref.read(appLanguageProvider.notifier).setLanguage(val);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
           // Section: Appearance
           Text(
-            'KO\'RINISh VA MAVZU',
+            AppStrings.tr('settings_appearance_section', currentLang),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -230,41 +330,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               children: [
                 RadioListTile<ThemeMode>(
-                  title: const Text('Tungi mavzu (Dark mode)'),
-                  subtitle: const Text(
-                    'The Go-getters uslubidagi quyuq qora ranglar',
+                  title: Text(AppStrings.tr('settings_theme_dark_title', currentLang)),
+                  subtitle: Text(
+                    AppStrings.tr('settings_theme_dark_desc', currentLang),
                   ),
                   value: ThemeMode.dark,
                   groupValue: themeMode,
                   activeColor: AppColors.primary,
                   onChanged: (val) {
                     if (val != null) {
+                      UiSoundFeedback.playItemClick();
                       ref.read(themeModeProvider.notifier).setThemeMode(val);
                     }
                   },
                 ),
                 const Divider(height: 1),
                 RadioListTile<ThemeMode>(
-                  title: const Text('Kunduzgi mavzu (Light mode)'),
-                  subtitle: const Text('Yorqin oq va toza interfeys'),
+                  title: Text(AppStrings.tr('settings_theme_light_title', currentLang)),
+                  subtitle: Text(
+                    AppStrings.tr('settings_theme_light_desc', currentLang),
+                  ),
                   value: ThemeMode.light,
                   groupValue: themeMode,
                   activeColor: AppColors.primary,
                   onChanged: (val) {
                     if (val != null) {
+                      UiSoundFeedback.playItemClick();
                       ref.read(themeModeProvider.notifier).setThemeMode(val);
                     }
                   },
                 ),
                 const Divider(height: 1),
                 RadioListTile<ThemeMode>(
-                  title: const Text('Tizim sozlamalari (System)'),
-                  subtitle: const Text('Qurilma sozlamalariga moslashish'),
+                  title: Text(AppStrings.tr('settings_theme_system_title', currentLang)),
+                  subtitle: Text(
+                    AppStrings.tr('settings_theme_system_desc', currentLang),
+                  ),
                   value: ThemeMode.system,
                   groupValue: themeMode,
                   activeColor: AppColors.primary,
                   onChanged: (val) {
                     if (val != null) {
+                      UiSoundFeedback.playItemClick();
                       ref.read(themeModeProvider.notifier).setThemeMode(val);
                     }
                   },
@@ -277,7 +384,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section: Server API Base URL
           Text(
-            'SERVER TARMOQ SOZLAMALARI',
+            AppStrings.tr('settings_network_section', currentLang),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -312,7 +419,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Emulator uchun: http://10.0.2.2:8080\nWeb/Desktop: http://localhost:8080\nServer: https://api.yourdomain.com',
+                  'Emulator: http://10.0.2.2:8080\nWeb/Desktop: http://localhost:8080\nServer: https://api.cognidoc.ai',
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.4,
@@ -335,21 +442,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   runSpacing: 6,
                   children: [
                     ActionChip(
-                      label: const Text('USB: localhost:8080', style: TextStyle(fontSize: 11)),
+                      label: const Text('localhost:8080', style: TextStyle(fontSize: 11)),
                       onPressed: () {
                         _urlController.text = 'http://localhost:8080';
                         ref.read(apiBaseUrlProvider.notifier).setBaseUrl('http://localhost:8080');
                       },
                     ),
                     ActionChip(
-                      label: const Text('Wi-Fi: 192.168.199.192', style: TextStyle(fontSize: 11)),
+                      label: const Text('192.168.199.192:8080', style: TextStyle(fontSize: 11)),
                       onPressed: () {
                         _urlController.text = 'http://192.168.199.192:8080';
                         ref.read(apiBaseUrlProvider.notifier).setBaseUrl('http://192.168.199.192:8080');
                       },
                     ),
                     ActionChip(
-                      label: const Text('Emulyator: 10.0.2.2', style: TextStyle(fontSize: 11)),
+                      label: const Text('10.0.2.2:8080', style: TextStyle(fontSize: 11)),
                       onPressed: () {
                         _urlController.text = 'http://10.0.2.2:8080';
                         ref.read(apiBaseUrlProvider.notifier).setBaseUrl('http://10.0.2.2:8080');
@@ -369,12 +476,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         _urlController.text = ref.read(apiBaseUrlProvider);
                         if (!mounted) return;
                         messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Standart manzil qaytarildi'),
+                          SnackBar(
+                            content: Text(
+                              AppStrings.tr('settings_api_reset', currentLang),
+                            ),
                           ),
                         );
                       },
-                      child: const Text('Standart'),
+                      child: Text(AppStrings.tr('settings_default_btn', currentLang)),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -386,12 +495,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .setBaseUrl(_urlController.text);
                           if (!mounted) return;
                           messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Server manzili saqlandi'),
+                            SnackBar(
+                              content: Text(
+                                AppStrings.tr('settings_api_saved', currentLang),
+                              ),
                             ),
                           );
                         },
-                        child: const Text('Saqlash'),
+                        child: Text(AppStrings.tr('save', currentLang)),
                       ),
                     ),
                   ],
@@ -400,13 +511,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-
-
           const SizedBox(height: 28),
 
           // Section: Account & Session
           Text(
-            'FOYDALANUVChI HISOBI',
+            AppStrings.tr('settings_account_section', currentLang),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -450,7 +559,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            authState.user?.fullName ?? 'Foydalanuvchi',
+                            authState.user?.fullName.isNotEmpty == true
+                                ? authState.user!.fullName
+                                : AppStrings.tr('profile_default_user', currentLang),
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -485,9 +596,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       side: const BorderSide(color: AppColors.error),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    onPressed: _showLogoutDialog,
+                    onPressed: () => _showLogoutDialog(currentLang),
                     icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: const Text('Hisobdan chiqish'),
+                    label: Text(AppStrings.tr('logout', currentLang)),
                   ),
                 ),
               ],

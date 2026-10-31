@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/error_presenter.dart';
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_sound_feedback.dart';
 import '../../conversations/presentation/conversations_drawer.dart';
@@ -64,21 +65,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     BuildContext context,
     String currentTitle,
     String convId,
+    AppLanguage lang,
   ) {
     final controller = TextEditingController(text: currentTitle);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Suhbat nomini o\'zgartirish'),
+        title: Text(AppStrings.tr('chat_rename_dialog_title', lang)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Yangi nom...'),
+          decoration: InputDecoration(
+            hintText: AppStrings.tr('chat_rename_hint', lang),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Bekor qilish'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -90,7 +94,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Saqlash'),
+            child: Text(AppStrings.tr('save', lang)),
           ),
         ],
       ),
@@ -99,12 +103,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     final chatState = ref.watch(chatProvider);
     final conversationsAsync = ref.watch(conversationsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Determine current conversation title
-    String title = 'Yangi suhbat';
+    String title = AppStrings.tr('chat_new_dialog', currentLang);
     if (chatState.conversationId != null) {
       final convList = conversationsAsync.value ?? [];
       final match = convList.where((c) => c.id == chatState.conversationId);
@@ -123,13 +128,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       if (hasNewMessage || hasDelta) {
         if (_isNearBottom && !_isUserScrolling) {
-          // While rapidly receiving streaming tokens, follow immediately to avoid animation thrashing.
-          // Smooth animate for new messages.
           final bool isRapidStream =
               next.isGenerating && hasDelta && !hasNewMessage;
           _scrollToBottom(smooth: !isRapidStream);
         } else {
-          // User scrolled up or is dragging: NEVER forcibly drag down!
           if (!_hasNewMessages) {
             setState(() {
               _hasNewMessages = true;
@@ -176,7 +178,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: GestureDetector(
           onTap: () {
             if (chatState.conversationId != null) {
-              _showRenameDialog(context, title, chatState.conversationId!);
+              _showRenameDialog(context, title, chatState.conversationId!, currentLang);
             }
           },
           child: Row(
@@ -210,7 +212,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           // New chat button
           IconButton(
             icon: const Icon(Icons.add_comment_outlined),
-            tooltip: 'Yangi suhbat',
+            tooltip: AppStrings.tr('chat_new_dialog', currentLang),
             onPressed: () {
               ref.read(selectedConversationIdProvider.notifier).state = null;
               ref.read(chatProvider.notifier).startNewChat();
@@ -219,7 +221,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           // History drawer trigger
           IconButton(
             icon: const Icon(Icons.history_rounded),
-            tooltip: 'Suhbatlar tarixi',
+            tooltip: AppStrings.tr('chat_history_tooltip', currentLang),
             onPressed: () {
               UiSoundFeedback.playDrawerOpen();
               _scaffoldKey.currentState?.openDrawer();
@@ -228,33 +230,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           // Chat Options Menu (Copy, Clear)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded),
-            tooltip: 'Suhbat amallari',
+            tooltip: AppStrings.tr('chat_actions_tooltip', currentLang),
             onSelected: (value) {
               if (value == 'copy') {
-                _copyFullConversation(context, chatState);
+                _copyFullConversation(context, chatState, currentLang);
               } else if (value == 'clear') {
                 ref.read(selectedConversationIdProvider.notifier).state = null;
                 ref.read(chatProvider.notifier).startNewChat();
               }
             },
             itemBuilder: (ctx) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'copy',
                 child: Row(
                   children: [
-                    Icon(Icons.copy_rounded, size: 18),
-                    SizedBox(width: 10),
-                    Text('Suhbatni nusxalash'),
+                    const Icon(Icons.copy_rounded, size: 18),
+                    const SizedBox(width: 10),
+                    Text(AppStrings.tr('chat_copy_full', currentLang)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.refresh_rounded, size: 18),
-                    SizedBox(width: 10),
-                    Text('Toza suhbat boshlash'),
+                    const Icon(Icons.refresh_rounded, size: 18),
+                    const SizedBox(width: 10),
+                    Text(AppStrings.tr('chat_clear_start', currentLang)),
                   ],
                 ),
               ),
@@ -316,7 +318,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Qanday yordam bera olaman?',
+                            AppStrings.tr('chat_how_can_help', currentLang),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 18,
@@ -328,7 +330,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Dasturlash, tahlil, hujjat yoki rasmlarni yuborib savol bering.',
+                            AppStrings.tr('chat_help_desc', currentLang),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
@@ -336,23 +338,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   ? AppColors.darkTextSecondary
                                   : AppColors.lightTextSecondary,
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            alignment: WrapAlignment.center,
-                            children: [
-                              _buildSuggestionChip('Python vs Go tahlili', ref),
-                              _buildSuggestionChip(
-                                'Clean Architecture asoslari',
-                                ref,
-                              ),
-                              _buildSuggestionChip(
-                                'PostgreSQL indekslash qoidalari',
-                                ref,
-                              ),
-                            ],
                           ),
                         ],
                       ),
@@ -478,9 +463,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             shape: BoxShape.circle,
                                           ),
                                         ),
-                                        const Text(
-                                          'Yangi xabarlar',
-                                          style: TextStyle(
+                                        Text(
+                                          AppStrings.tr('chat_new_messages_badge', currentLang),
+                                          style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                             color: AppColors.primary,
@@ -525,45 +510,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildSuggestionChip(String text, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ActionChip(
-      backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
-      side: BorderSide(
-        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-      ),
-      label: Text(text),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-      ),
-      onPressed: () {
-        ref.read(chatProvider.notifier).sendMessage(text);
-        _scrollToBottom(smooth: true);
-      },
-    );
-  }
-
-  void _copyFullConversation(BuildContext context, ChatState chatState) {
+  void _copyFullConversation(BuildContext context, ChatState chatState, AppLanguage lang) {
     if (chatState.messages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Suhbatda hozircha xabarlar yo\'q')),
-      );
       return;
     }
 
     final sb = StringBuffer();
     for (final m in chatState.messages) {
-      final role = m.isUser ? 'Foydalanuvchi' : 'AI Yordamchi';
+      final role = m.isUser ? 'User' : 'Cognidoc AI';
       sb.writeln('[$role]:\n${m.content}\n');
     }
 
     Clipboard.setData(ClipboardData(text: sb.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📋 Butun suhbat xotiraga nusxalandi!'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(AppStrings.tr('chat_copy_full_done', lang)),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

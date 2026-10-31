@@ -7,6 +7,7 @@ import (
 
 	"ai-chat-backend/internal/auth"
 	apphttp "ai-chat-backend/internal/http"
+	"ai-chat-backend/internal/i18n"
 	"ai-chat-backend/internal/middleware"
 )
 
@@ -21,7 +22,7 @@ func NewAuthHandler(authService *auth.Service) *AuthHandler {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req auth.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apphttp.WriteError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "So'rov formati noto'g'ri")
+		apphttp.WriteLocalizedError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "ERR_MALFORMED_JSON")
 		return
 	}
 
@@ -31,14 +32,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.authService.Register(r.Context(), req, userAgent, ip)
 	if err != nil {
 		if errors.Is(err, auth.ErrEmailExists) {
-			apphttp.WriteError(w, r, http.StatusConflict, "EMAIL_EXISTS", err.Error())
+			apphttp.WriteLocalizedError(w, r, http.StatusConflict, "EMAIL_EXISTS", "ERR_EMAIL_EXISTS")
 			return
 		}
 		if errors.Is(err, auth.ErrValidation) {
 			apphttp.WriteError(w, r, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 			return
 		}
-		apphttp.WriteError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "Ro'yxatdan o'tishda xatolik yuz berdi")
+		apphttp.WriteLocalizedError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "ERR_INTERNAL")
 		return
 	}
 
@@ -48,7 +49,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req auth.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apphttp.WriteError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "So'rov formati noto'g'ri")
+		apphttp.WriteLocalizedError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "ERR_MALFORMED_JSON")
 		return
 	}
 
@@ -58,10 +59,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.authService.Login(r.Context(), req, userAgent, ip)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			apphttp.WriteError(w, r, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Email yoki parol noto'g'ri")
+			apphttp.WriteLocalizedError(w, r, http.StatusUnauthorized, "INVALID_CREDENTIALS", "ERR_INVALID_CREDENTIALS")
 			return
 		}
-		apphttp.WriteError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "Tizimga kirishda xatolik yuz berdi")
+		apphttp.WriteLocalizedError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "ERR_INTERNAL")
 		return
 	}
 
@@ -71,7 +72,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req auth.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apphttp.WriteError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "So'rov formati noto'g'ri")
+		apphttp.WriteLocalizedError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "ERR_MALFORMED_JSON")
 		return
 	}
 
@@ -80,7 +81,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.authService.RefreshToken(r.Context(), req.RefreshToken, userAgent, ip)
 	if err != nil {
-		apphttp.WriteError(w, r, http.StatusUnauthorized, "INVALID_TOKEN", "Sessiya muddati tugagan yoki token noto'g'ri")
+		apphttp.WriteLocalizedError(w, r, http.StatusUnauthorized, "INVALID_TOKEN", "ERR_INVALID_TOKEN")
 		return
 	}
 
@@ -95,19 +96,22 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		_ = h.authService.Logout(r.Context(), req.RefreshToken)
 	}
 
-	apphttp.WriteJSON(w, http.StatusOK, map[string]string{"message": "Muvaffaqiyatli chiqildi"})
+	locale := i18n.GetLocaleFromRequest(r)
+	apphttp.WriteJSON(w, http.StatusOK, map[string]string{
+		"message": i18n.T(locale, "SUCCESS_LOGOUT"),
+	})
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		apphttp.WriteError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Avtorizatsiyadan o'tilmagan")
+		apphttp.WriteLocalizedError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "ERR_UNAUTHORIZED")
 		return
 	}
 
 	user, err := h.authService.GetUserByID(r.Context(), userID)
 	if err != nil {
-		apphttp.WriteError(w, r, http.StatusNotFound, "USER_NOT_FOUND", "Foydalanuvchi topilmadi")
+		apphttp.WriteLocalizedError(w, r, http.StatusNotFound, "USER_NOT_FOUND", "ERR_NOT_FOUND")
 		return
 	}
 
@@ -115,7 +119,34 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		ID:        user.ID,
 		Email:     user.Email,
 		FullName:  user.FullName,
+		Locale:    user.Locale,
 		CreatedAt: user.CreatedAt,
+	})
+}
+
+// UpdateLocale allows the authenticated user to persist their app language choice in their profile.
+func (h *AuthHandler) UpdateLocale(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		apphttp.WriteLocalizedError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "ERR_UNAUTHORIZED")
+		return
+	}
+
+	var req auth.UpdateLocaleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Locale == "" {
+		apphttp.WriteLocalizedError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "ERR_MALFORMED_JSON")
+		return
+	}
+
+	if err := h.authService.UpdateLocale(r.Context(), userID, req.Locale); err != nil {
+		apphttp.WriteLocalizedError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "ERR_INTERNAL")
+		return
+	}
+
+	cleanLocale := i18n.ParseLocale(req.Locale)
+	apphttp.WriteJSON(w, http.StatusOK, map[string]string{
+		"message": i18n.T(cleanLocale, "SUCCESS_LOCALE_UPDATED"),
+		"locale":  cleanLocale,
 	})
 }
 
@@ -123,16 +154,17 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		apphttp.WriteError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Avtorizatsiyadan o'tilmagan")
+		apphttp.WriteLocalizedError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "ERR_UNAUTHORIZED")
 		return
 	}
 
 	if err := h.authService.DeleteUser(r.Context(), userID); err != nil {
-		apphttp.WriteError(w, r, http.StatusInternalServerError, "DELETE_FAILED", "Hisobni o'chirishda xatolik yuz berdi")
+		apphttp.WriteLocalizedError(w, r, http.StatusInternalServerError, "DELETE_FAILED", "ERR_INTERNAL")
 		return
 	}
 
+	locale := i18n.GetLocaleFromRequest(r)
 	apphttp.WriteJSON(w, http.StatusOK, map[string]string{
-		"message": "Hisob va unga tegishli barcha ma'lumotlar muvaffaqiyatli o'chirildi",
+		"message": i18n.T(locale, "SUCCESS_ACCOUNT_DELETED"),
 	})
 }

@@ -13,6 +13,7 @@ import (
 	"ai-chat-backend/internal/ai"
 	"ai-chat-backend/internal/files"
 	"ai-chat-backend/internal/gateway"
+	"ai-chat-backend/internal/i18n"
 	"ai-chat-backend/internal/messages"
 	"ai-chat-backend/internal/plans"
 	"github.com/jackc/pgx/v5"
@@ -340,12 +341,19 @@ func (s *Service) ExecuteStream(w http.ResponseWriter, r *http.Request, userID, 
 		}}, historyMessages...)
 	}
 
-	aiMessages := make([]ai.ChatMessage, 0, len(historyMessages)+1)
+	reqLocale := i18n.GetLocaleFromRequest(r)
+
+	aiMessages := make([]ai.ChatMessage, 0, len(historyMessages)+2)
+	// Inject localized instruction into AI system message
+	aiMessages = append(aiMessages, ai.ChatMessage{
+		Role:    "system",
+		Content: i18n.GetAISystemPrompt(reqLocale),
+	})
 	aiMessages = append(aiMessages, historyMessages...)
 
 	currentUserContent := userMsg.Content
 	if docContext != "" {
-		currentUserContent = fmt.Sprintf("%s\n\n[Hujjatlar konteksti:\n%s\n\nKO'RSATMA: Iltimos, faqat yuqoridagi hujjat bo'limlaridagi faktlarga tayanib javob bering va manba sahifa raqamlarini (masalan, [Sahifa N]) ko'rsating. Agar hujjatda so'ralgan ma'lumot bo'lmasa, uni to'qimasdan ochiq ayting.]", userMsg.Content, docContext)
+		currentUserContent = fmt.Sprintf("%s\n\n%s", userMsg.Content, i18n.GetRAGInstruction(reqLocale, docContext))
 	}
 	aiMessages = append(aiMessages, ai.ChatMessage{
 		Role:    "user",
@@ -384,7 +392,7 @@ func (s *Service) ExecuteStream(w http.ResponseWriter, r *http.Request, userID, 
 	// Final status event before tokens
 	writeSSE(w, flusher, "pipeline.status", map[string]string{
 		"stage":       "generating",
-		"status_text": "Javob tayyorlanmoqda",
+		"status_text": i18n.GetStatusText(reqLocale, "generating"),
 	})
 
 	// Send generation.started event

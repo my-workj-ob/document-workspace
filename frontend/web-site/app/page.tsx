@@ -57,15 +57,15 @@ export default function Home() {
           <div className="doc-card">
             <div className="doc-top"><span className="file-icon">PDF</span><span className="doc-name">Tadqiqot_hisoboti.pdf</span><span className="more">···</span></div>
             <div className="doc-body"><small>HUJJAT TAHLILI</small><div className="doc-title-line" /><div className="doc-text-line wide" /><div className="doc-text-line" /><div className="doc-text-line short" /><div className="highlight-line" /><div className="doc-text-line wide" /><div className="doc-text-line short" /></div>
-            <div className="doc-footer"><span className="sparkle">✳</span> 12 sahifa tahlil qilindi <span className="check">✓</span></div>
+            <div className="doc-footer"><span className="sparkle">✳</span> Hujjat mazmuni <span className="check">✓</span></div>
           </div>
           <div className="answer-card">
             <div className="answer-brand"><span className="mini-mark">c</span> Cognidoc AI <span className="online">●</span></div>
-            <p className="question">Asosiy xulosalar qanday?</p>
-            <p className="answer">Hisobotda uchta muhim yo‘nalish ajratilgan. Birinchisi — resurslardan samarali foydalanish…</p>
-            <div className="answer-source"><span>▤</span> Manba: 4–5-sahifalar</div>
+            <p className="question">Hujjat bo‘yicha savol bering</p>
+            <p className="answer">Cognidoc AI hujjatingiz mazmunini tahlil qilishga yordam beradi va javobni tushunarli shaklda taqdim etadi.</p>
+            <div className="answer-source"><span>▤</span> Manbaga tayangan javob</div>
           </div>
-          <div className="floating-tag"><span>✳</span> Mazmun bo‘yicha javob</div>
+          <div className="floating-tag"><span>✳</span> Interfeys namunasi</div>
         </div>
       </section>
 

@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/localization/app_locale.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../models/attached_file.dart';
@@ -49,14 +50,15 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _handleSend() {
+    final currentLang = ref.read(appLanguageProvider);
     final text = _controller.text.trim();
     if ((text.isEmpty && _attachedFiles.isEmpty) || widget.isGenerating) return;
 
     if (_attachedFiles.any((f) => f.isUploading)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⏳ Fayllar serverga yuklanmoqda, kuting...'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppStrings.tr('chat_files_uploading', currentLang)),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -68,7 +70,11 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         .toList();
 
     final promptText = text.isEmpty && _attachedFiles.isNotEmpty
-        ? 'Iltimos, ushbu biriktirilgan fayllarni tahlil qilib, asosiy ma\'lumotlarni tushuntirib bering.'
+        ? (currentLang == AppLanguage.ru
+            ? 'Пожалуйста, проанализируйте эти прикрепленные файлы и объясните ключевые тезисы.'
+            : currentLang == AppLanguage.en
+                ? 'Please analyze these attached files and summarize the key concepts.'
+                : 'Iltimos, ushbu biriktirilgan fayllarni tahlil qilib, asosiy ma\'lumotlarni tushuntirib bering.')
         : text;
 
     widget.onSend(promptText, fileIds: fileIds.isNotEmpty ? fileIds : null);
@@ -603,6 +609,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -642,7 +649,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                 // Attachment Button
                 IconButton(
                   icon: const Icon(Icons.attach_file_rounded),
-                  tooltip: 'Fayl biriktirish (PDF, DOCX, Rasm)',
+                  tooltip: AppStrings.tr('chat_attach_file', currentLang),
                   color: isDark
                       ? AppColors.darkTextSecondary
                       : AppColors.lightTextSecondary,
@@ -683,7 +690,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                             color: AppColors.primary,
                             size: 19,
                           ),
-                          tooltip: 'Sehrli takomillashtirgich',
+                          tooltip: AppStrings.tr('chat_magic_prompt_title', currentLang),
                           onPressed: _enhancePrompt,
                         ),
                         suffixIcon: _hasText
@@ -697,8 +704,12 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                               )
                             : null,
                         hintText: _attachedFiles.isNotEmpty
-                            ? 'Fayl haqida savol yozing...'
-                            : 'Savolingizni yozing...',
+                            ? (currentLang == AppLanguage.ru
+                                ? 'Задайте вопрос по файлу...'
+                                : currentLang == AppLanguage.en
+                                    ? 'Ask a question about the file...'
+                                    : 'Fayl haqida savol yozing...')
+                            : AppStrings.tr('chat_input_placeholder', currentLang),
                         hintStyle: TextStyle(
                           color: isDark
                               ? AppColors.darkTextSecondary

@@ -166,8 +166,7 @@ func (p *OpenAICompatibleProvider) StreamChat(ctx context.Context, messages []Ch
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 		httpReq.Header.Set("Accept", "text/event-stream")
-		httpReq.Header.Set("HTTP-Referer", "https://thego-getters.vercel.app")
-		httpReq.Header.Set("X-Title", "The Go-getters")
+		httpReq.Header.Set("X-Title", "Cognidoc AI")
 
 		resp, err := p.client.Do(httpReq)
 		if err != nil {

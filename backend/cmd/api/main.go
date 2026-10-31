@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"ai-chat-backend/internal/ai"
 	"ai-chat-backend/internal/admin"
+	"ai-chat-backend/internal/ai"
 	"ai-chat-backend/internal/auth"
 	"ai-chat-backend/internal/billing"
 	"ai-chat-backend/internal/config"
@@ -403,6 +403,7 @@ func main() {
 
 	// Global Middlewares
 	r.Use(middleware.RequestID)
+	r.Use(middleware.LocaleMiddleware)
 	r.Use(middleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	// CORS Configuration (SEC-07: Respect AllowedOrigins, disallow wildcard origin with credentials)
@@ -424,8 +425,8 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Signature"},
-		ExposedHeaders:   []string{"Link", "X-Request-ID"},
+		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-Request-ID", "X-Signature"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID", "Content-Language"},
 		AllowCredentials: allowCreds,
 		MaxAge:           300,
 	}))
@@ -457,6 +458,7 @@ func main() {
 			protected.Use(authenticator.RequireAuth)
 
 			protected.Get("/me", authHandler.Me)
+			protected.Patch("/me/locale", authHandler.UpdateLocale)
 			protected.Delete("/me", authHandler.DeleteAccount)
 			protected.Get("/me/entitlements", plansHandler.GetMyEntitlements)
 			protected.Get("/me/usage", plansHandler.GetMyUsage)

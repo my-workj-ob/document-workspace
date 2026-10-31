@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/api_config.dart';
+import '../../../core/localization/app_locale.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/storage_service.dart';
 import '../../subscription/services/revenuecat_service.dart';
@@ -14,27 +15,43 @@ final authStorageProvider = Provider<StorageService>((ref) {
 final apiClientProvider = Provider<ApiClient>((ref) {
   final baseUrl = ref.watch(apiBaseUrlProvider);
   final authState = ref.watch(authProvider);
+  final lang = ref.watch(appLanguageProvider);
 
   return ApiClient(
     getBaseUrl: () => baseUrl,
     getAccessToken: () => authState.accessToken,
+    getLocale: () => lang.code,
   );
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final storage = ref.watch(authStorageProvider);
-  return AuthNotifier(storage, () => ref.read(apiBaseUrlProvider));
+  return AuthNotifier(
+    storage,
+    () => ref.read(apiBaseUrlProvider),
+    () => ref.read(appLanguageProvider).code,
+    (backendLocale) {
+      ref.read(appLanguageProvider.notifier).setLanguageFromBackend(backendLocale);
+    },
+  );
 });
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final StorageService _storage;
   final String Function() _getBaseUrl;
+  final String Function() _getCurrentLocale;
+  final void Function(String) _onLocaleSynced;
 
   static const _keyAccess = 'jwt_access_token';
   static const _keyRefresh = 'jwt_refresh_token';
   static const _keyUser = 'user_profile_json';
 
-  AuthNotifier(this._storage, this._getBaseUrl) : super(const AuthState()) {
+  AuthNotifier(
+    this._storage,
+    this._getBaseUrl,
+    this._getCurrentLocale,
+    this._onLocaleSynced,
+  ) : super(const AuthState()) {
     checkAuthStatus();
   }
 
@@ -49,6 +66,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = UserProfile.fromJson(jsonDecode(userStr));
         // Link identity with RevenueCat
         RevenueCatService.instance.logIn(user.id);
+        if (user.locale.isNotEmpty) {
+          _onLocaleSynced(user.locale);
+        }
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
@@ -74,6 +94,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final client = ApiClient(
       getBaseUrl: _getBaseUrl,
       getAccessToken: () => null,
+      getLocale: _getCurrentLocale,
     );
 
     try {
@@ -92,6 +113,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // Link user ID to RevenueCat
       RevenueCatService.instance.logIn(user.id);
+
+      // Sync user language preference across devices
+      if (user.locale.isNotEmpty) {
+        _onLocaleSynced(user.locale);
+      }
 
       state = state.copyWith(
         isAuthenticated: true,
@@ -112,15 +138,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final client = ApiClient(
       getBaseUrl: _getBaseUrl,
       getAccessToken: () => null,
+      getLocale: _getCurrentLocale,
     );
 
     try {
+      final currentLocale = _getCurrentLocale();
       final resp = await client.post(
         '/api/v1/auth/register',
         body: {
           'email': email.trim(),
           'password': password,
           'full_name': fullName.trim(),
+          'locale': currentLocale,
         },
       );
 
@@ -157,6 +186,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final client = ApiClient(
         getBaseUrl: _getBaseUrl,
         getAccessToken: () => token,
+        getLocale: _getCurrentLocale,
       );
       try {
         await client.post(
@@ -182,6 +212,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final client = ApiClient(
       getBaseUrl: _getBaseUrl,
       getAccessToken: () => token,
+      getLocale: _getCurrentLocale,
     );
 
     try {

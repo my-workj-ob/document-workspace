@@ -10,6 +10,7 @@ import (
 	apphttp "ai-chat-backend/internal/http"
 	"ai-chat-backend/internal/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -34,9 +35,9 @@ ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS cache_write_tokens INT NOT NUL
 `
 
 type Handler struct {
-	pool                *pgxpool.Pool
-	providerConfigured  bool
-	providerName        string
+	pool               *pgxpool.Pool
+	providerConfigured bool
+	providerName       string
 }
 
 func NewHandler(pool *pgxpool.Pool, providerConfigured bool, providerName string) *Handler {
@@ -58,6 +59,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		EstimatedCostUSD float64   `json:"estimated_cost_usd"`
 		UpdatedAt        time.Time `json:"updated_at"`
 		DataSource       string    `json:"data_source"`
+		TokenCountSource string    `json:"token_count_source"`
 	}
 	err := h.pool.QueryRow(r.Context(), `
 		WITH user_activity AS (
@@ -69,7 +71,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 			SELECT
 				COALESCE(SUM(input_tokens), 0)::bigint AS input_tokens,
 				COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
-				COALESCE(SUM(actual_cost_usd), 0)::double precision AS estimated_cost
+				COALESCE(SUM(COALESCE(NULLIF(estimated_cost_usd, 0), actual_cost_usd)), 0)::double precision AS estimated_cost
 			FROM usage_ledger WHERE status = 'settled'
 		)
 		SELECT
@@ -94,6 +96,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result.DataSource = "PostgreSQL: users, usage_ledger (settled)"
+	result.TokenCountSource = "estimated_from_text_length"
 	if !h.audit(r, "read", "overview") {
 		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
 		return
@@ -163,7 +166,8 @@ func (h *Handler) Users(w http.ResponseWriter, r *http.Request) {
 		users = append(users, map[string]any{
 			"id": id, "email": email, "full_name": fullName, "status": userStatus,
 			"plan_id": planID, "created_at": createdAt, "input_tokens": inputTokens,
-			"output_tokens": outputTokens, "last_activity": lastActivity,
+			"output_tokens": outputTokens, "token_count_source": "estimated_from_text_length",
+			"last_activity":       lastActivity,
 			"subscription_status": subStatus, "renews_at": renewsAt,
 		})
 	}
@@ -178,12 +182,16 @@ func (h *Handler) Users(w http.ResponseWriter, r *http.Request) {
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"users": users, "limit": limit, "offset": offset,
 		"data_source": "PostgreSQL: users, usage_ledger, subscriptions",
-		"updated_at": time.Now().UTC(),
+		"updated_at":  time.Now().UTC(),
 	})
 }
 
 func (h *Handler) UserDetail(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
+	if _, err := uuid.Parse(userID); err != nil {
+		apphttp.WriteError(w, r, http.StatusBadRequest, "INVALID_USER_ID", "Foydalanuvchi identifikatori noto'g'ri")
+		return
+	}
 	var user map[string]any
 	var id, email, name, status, planID string
 	var createdAt time.Time
@@ -207,7 +215,7 @@ func (h *Handler) UserDetail(w http.ResponseWriter, r *http.Request) {
 	err = h.pool.QueryRow(r.Context(), `
 		SELECT COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0),
 			COALESCE(SUM(cache_read_tokens), 0), COALESCE(SUM(cache_write_tokens), 0),
-			COALESCE(SUM(actual_cost_usd), 0)::double precision, COUNT(*)
+			COALESCE(SUM(COALESCE(NULLIF(estimated_cost_usd, 0), actual_cost_usd)), 0)::double precision, COUNT(*)
 		FROM usage_ledger WHERE user_id = $1::uuid AND status = 'settled'
 	`, userID).Scan(&in, &out, &cachedRead, &cachedWrite, &estimated, &generations)
 	if err != nil {
@@ -215,7 +223,8 @@ func (h *Handler) UserDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	subRows, err := h.pool.Query(r.Context(), `
-		SELECT provider, product_id, plan_id, status, store, environment, renews_at, ends_at, created_at
+		SELECT provider, COALESCE(product_id, ''), plan_id, status,
+			COALESCE(store, ''), COALESCE(environment, ''), renews_at, ends_at, created_at
 		FROM subscriptions WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT 20
 	`, userID)
 	if err != nil {
@@ -241,6 +250,7 @@ func (h *Handler) UserDetail(w http.ResponseWriter, r *http.Request) {
 	user["usage"] = map[string]any{
 		"input_tokens": in, "output_tokens": out, "cache_read_tokens": cachedRead,
 		"cache_write_tokens": cachedWrite, "estimated_cost_usd": estimated,
+		"token_count_source":          "estimated_from_text_length",
 		"provider_confirmed_cost_usd": nil, "generation_count": generations,
 		"data_source": "PostgreSQL: usage_ledger; cost is model-price estimate, not provider-confirmed",
 	}
@@ -261,10 +271,11 @@ func (h *Handler) Usage(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(), `
 		SELECT COALESCE(m.provider, 'unknown'), l.model_id,
 			COALESCE(SUM(l.input_tokens), 0)::bigint, COALESCE(SUM(l.output_tokens), 0)::bigint,
-			COALESCE(SUM(l.actual_cost_usd), 0)::double precision, COUNT(*)::bigint
+			COALESCE(SUM(COALESCE(NULLIF(l.estimated_cost_usd, 0), l.actual_cost_usd)), 0)::double precision, COUNT(*)::bigint
 		FROM usage_ledger l LEFT JOIN models m ON m.id = l.model_id
 		WHERE l.status = 'settled' AND l.created_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day')
-		GROUP BY m.provider, l.model_id ORDER BY SUM(l.actual_cost_usd) DESC
+		GROUP BY m.provider, l.model_id
+		ORDER BY SUM(COALESCE(NULLIF(l.estimated_cost_usd, 0), l.actual_cost_usd)) DESC
 	`, days)
 	if err != nil {
 		h.writeDBError(w, r, "AI foydalanish metrikalarini yuklab bo'lmadi")
@@ -288,7 +299,7 @@ func (h *Handler) Usage(w http.ResponseWriter, r *http.Request) {
 		models = append(models, map[string]any{
 			"provider": provider, "model_id": model, "input_tokens": i, "output_tokens": o,
 			"cache_read_tokens": nil, "cache_write_tokens": nil, "estimated_cost_usd": cost,
-			"token_count_source": "estimated_from_text_length",
+			"token_count_source":          "estimated_from_text_length",
 			"provider_confirmed_cost_usd": nil, "requests": count,
 		})
 	}
@@ -305,10 +316,10 @@ func (h *Handler) Usage(w http.ResponseWriter, r *http.Request) {
 		"totals": map[string]any{
 			"input_tokens": input, "output_tokens": output,
 			"cache_read_tokens": nil, "cache_write_tokens": nil,
-			"token_count_source": "estimated_from_text_length",
-			"estimated_cost_usd": estimated,
+			"token_count_source":          "estimated_from_text_length",
+			"estimated_cost_usd":          estimated,
 			"provider_confirmed_cost_usd": nil,
-			"data_source": "PostgreSQL: usage_ledger + models; costs calculated using configured model prices",
+			"data_source":                 "PostgreSQL: usage_ledger + models; costs calculated using configured model prices",
 		},
 		"models": models, "cache_tokens_status": "unavailable", "updated_at": time.Now().UTC(),
 	})
@@ -354,9 +365,9 @@ func (h *Handler) Models(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
-		"models": models,
+		"models":         models,
 		"pricing_source": "PostgreSQL: models pricing catalog; prices are configured values, not provider invoices",
-		"updated_at": time.Now().UTC(),
+		"updated_at":     time.Now().UTC(),
 	})
 }
 
@@ -400,14 +411,14 @@ func (h *Handler) Features(w http.ResponseWriter, r *http.Request) {
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"features": features, "period_days": days,
 		"data_source": "PostgreSQL: conversations.category + settled usage_ledger; no chat content",
-		"updated_at": time.Now().UTC(),
+		"updated_at":  time.Now().UTC(),
 	})
 }
 
 func (h *Handler) Subscriptions(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(), `
-		SELECT s.id::text, s.user_id::text, u.email, s.provider, s.product_id, s.plan_id,
-			s.status, s.store, s.environment, s.renews_at, s.ends_at, s.created_at
+		SELECT s.id::text, s.user_id::text, u.email, s.provider, COALESCE(s.product_id, ''), s.plan_id,
+			s.status, COALESCE(s.store, ''), COALESCE(s.environment, ''), s.renews_at, s.ends_at, s.created_at
 		FROM subscriptions s JOIN users u ON u.id = s.user_id
 		ORDER BY s.created_at DESC LIMIT 500
 	`)
@@ -448,7 +459,7 @@ func (h *Handler) Subscriptions(w http.ResponseWriter, r *http.Request) {
 		},
 		"revenue_usd": nil, "mrr_usd": nil, "arr_usd": nil,
 		"data_source": "PostgreSQL: subscriptions (RevenueCat metadata only)",
-		"updated_at": time.Now().UTC(),
+		"updated_at":  time.Now().UTC(),
 	})
 }
 
@@ -476,17 +487,17 @@ func (h *Handler) System(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
-		"api": map[string]any{"status": "connected", "source": "Cognidoc API"},
+		"api":      map[string]any{"status": "connected", "source": "Cognidoc API"},
 		"database": map[string]any{"status": dbStatus, "source": "PostgreSQL ping"},
 		"ai_provider": map[string]any{
 			"name": h.providerName, "status": providerStatus, "credentials_configured": h.providerConfigured,
 			"source": "Backend configuration; live provider health check is not implemented",
 		},
-		"payments": map[string]any{"status": "unavailable", "source": "No payment transaction API configured"},
+		"payments":               map[string]any{"status": "unavailable", "source": "No payment transaction API configured"},
 		"failed_generations_24h": failures,
-		"api_request_metrics": map[string]any{"status": "unavailable", "reason": "Request telemetry is not persisted"},
-		"server_logs": map[string]any{"status": "unavailable", "reason": "Centralized structured log storage is not configured"},
-		"updated_at": time.Now().UTC(),
+		"api_request_metrics":    map[string]any{"status": "unavailable", "reason": "Request telemetry is not persisted"},
+		"server_logs":            map[string]any{"status": "unavailable", "reason": "Centralized structured log storage is not configured"},
+		"updated_at":             time.Now().UTC(),
 	})
 }
 

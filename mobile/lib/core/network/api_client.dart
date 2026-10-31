@@ -8,11 +8,13 @@ import '../errors/app_exception.dart';
 class ApiClient {
   final String Function() getBaseUrl;
   final String? Function() getAccessToken;
+  final String? Function()? getLocale;
   final http.Client _client;
 
   ApiClient({
     required this.getBaseUrl,
     required this.getAccessToken,
+    this.getLocale,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
@@ -24,6 +26,11 @@ class ApiClient {
     final token = getAccessToken();
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
+    }
+    final locFn = getLocale;
+    final locale = locFn != null ? locFn() : null;
+    if (locale != null && locale.isNotEmpty) {
+      headers['Accept-Language'] = locale;
     }
     return headers;
   }

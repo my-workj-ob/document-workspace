@@ -81,9 +81,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    AppStrings.tr('app_title', currentLang),
+                    'EduAI',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       letterSpacing: -0.3,
                       color: isDark
@@ -303,7 +303,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                             const SizedBox(width: 8),
                             ActionChip(
                               avatar: const Icon(Icons.note_alt_rounded,
-                                  color: Colors.emerald, size: 16),
+                                  color: Color(0xFF10B981), size: 16),
                               label: Text(
                                 AppStrings.tr('sample_summary', currentLang),
                               ),

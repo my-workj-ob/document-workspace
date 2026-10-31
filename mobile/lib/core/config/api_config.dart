@@ -9,7 +9,7 @@ final apiBaseUrlProvider = StateNotifierProvider<ApiBaseUrlNotifier, String>((
 });
 
 class ApiBaseUrlNotifier extends StateNotifier<String> {
-  static const _prefKey = 'custom_api_base_url';
+  static const _prefKey = 'https://document-workspace-g59a.onrender.com';
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
   ApiBaseUrlNotifier() : super(_defaultBaseUrl) {
@@ -21,10 +21,10 @@ class ApiBaseUrlNotifier extends StateNotifier<String> {
       return _envBaseUrl.trim();
     }
     if (kReleaseMode) {
-      return 'https://api.cognidoc.ai';
+      return 'https://document-workspace-g59a.onrender.com';
     }
     // http://localhost:8080 works for Web, Desktop, and physical Android devices via `adb reverse tcp:8080 tcp:8080`
-    return 'http://localhost:8080';
+    return 'https://document-workspace-g59a.onrender.com';
   }
 
   Future<void> _loadSavedUrl() async {
