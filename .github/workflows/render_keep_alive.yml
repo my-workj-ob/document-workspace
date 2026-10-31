@@ -1,0 +1,22 @@
+name: Render Keep-Alive 24/7
+
+on:
+  schedule:
+    # Har 10 daqiqada bir marta avtomatik so'rov yuborish (Render 15 daqiqada uxlaydi)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # GitHub UI orqali qo'lda ham ishga tushirish imkoniyati
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Cognidoc AI Render Backend
+        run: |
+          echo "Sending keep-alive ping to Render backend..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 https://document-workspace-g59a.onrender.com/health/live)
+          echo "Response HTTP Status: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "Render backend is alive and healthy! ⚡"
+          else
+            echo "Render responded with status $STATUS"
+          fi
