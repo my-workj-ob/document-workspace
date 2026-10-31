@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_sound_feedback.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -32,8 +33,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final currentLang = ref.watch(appLanguageProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final userName = authState.user?.fullName.split(' ').first ?? 'Do\'stim';
+    final userName = authState.user?.fullName.split(' ').first ?? 'Talaba';
 
     return Scaffold(
       key: _scaffoldKey,
@@ -54,12 +56,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // Pinned Top App Bar: Keeps header visible and prevents status bar / battery / notch clipping
+            // Pinned Top App Bar: Keeps header visible and prevents status bar clipping
             SliverAppBar(
               pinned: true,
               floating: false,
               elevation: 0,
-              backgroundColor: isDark ? AppColors.darkScaffold : AppColors.lightScaffold,
+              backgroundColor:
+                  isDark ? AppColors.darkScaffold : AppColors.lightScaffold,
               automaticallyImplyLeading: false,
               title: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -71,16 +74,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      Icons.auto_awesome_rounded,
+                      Icons.school_rounded,
                       color: AppColors.primary,
                       size: 18,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'The Go-getters AI',
+                    AppStrings.tr('app_title', currentLang),
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       letterSpacing: -0.3,
                       color: isDark
@@ -91,6 +94,85 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 ],
               ),
               actions: [
+                // 3-Language Switcher (UZ / RU / EN)
+                PopupMenuButton<AppLanguage>(
+                  initialValue: currentLang,
+                  tooltip: AppStrings.tr('settings_language', currentLang),
+                  onSelected: (lang) {
+                    UiSoundFeedback.playItemClick();
+                    ref.read(appLanguageProvider.notifier).setLanguage(lang);
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(currentLang.flag,
+                            style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 4),
+                        Text(
+                          currentLang.code.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_drop_down_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: AppLanguage.uz,
+                      child: Row(
+                        children: [
+                          Text('🇺🇿', style: TextStyle(fontSize: 16)),
+                          SizedBox(width: 8),
+                          Text('O\'zbekcha'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: AppLanguage.ru,
+                      child: Row(
+                        children: [
+                          Text('🇷🇺', style: TextStyle(fontSize: 16)),
+                          SizedBox(width: 8),
+                          Text('Русский'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: AppLanguage.en,
+                      child: Row(
+                        children: [
+                          Text('🇬🇧', style: TextStyle(fontSize: 16)),
+                          SizedBox(width: 8),
+                          Text('English'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
                 Semantics(
                   label: 'Menyu',
                   button: true,
@@ -105,7 +187,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 ),
                 const SizedBox(width: 4),
                 Semantics(
-                  label: 'Foydalanuvchi profili',
+                  label: 'Profil',
                   button: true,
                   child: GestureDetector(
                     onTap: () {
@@ -135,7 +217,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-            // Hero Bubble "Salom, [Name] / Suhbatni boshlash"
+            // Hero Bubble
             SliverToBoxAdapter(
               child: HeroChatBubble(
                 userName: userName,
@@ -145,7 +227,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-            // Product Hack #1: 5 soniyalik Aha-Moment (Tayyor namunalar bilan sinash)
+            // Product Hack: 5-Second Aha-Moment (Education Sample Chips)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -164,14 +246,17 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
+                          const Icon(Icons.auto_awesome,
+                              color: AppColors.primary, size: 16),
                           const SizedBox(width: 6),
                           Text(
-                            'Tayyor namuna bilan sinab ko\'ring:',
+                            AppStrings.tr('ready_sample', currentLang),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                              color: isDark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.lightTextPrimary,
                             ),
                           ),
                         ],
@@ -183,35 +268,70 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         child: Row(
                           children: [
                             ActionChip(
-                              avatar: const Icon(Icons.picture_as_pdf, color: Colors.redAccent, size: 16),
-                              label: const Text('📄 Mehnat kodeksi.pdf'),
-                              backgroundColor: AppColors.primary.withOpacity(0.08),
-                              side: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+                              avatar: const Icon(Icons.menu_book_rounded,
+                                  color: Colors.blueAccent, size: 16),
+                              label: Text(
+                                AppStrings.tr('sample_physics', currentLang),
+                              ),
+                              backgroundColor:
+                                  AppColors.primary.withOpacity(0.08),
+                              side: BorderSide(
+                                  color: AppColors.primary.withOpacity(0.2)),
                               onPressed: () => widget.onStartWithCategory(
-                                'O\'zbekiston Respublikasi Mehnat kodeksiga asosan ish vaqti, sinov muddati va xodimning asosiy kafolatlari bo\'yicha aniq moddalarni ko\'rsatib bering.',
-                                'Mehnat Kodeksi',
+                                AppStrings.tr(
+                                    'sample_physics_prompt', currentLang),
+                                'Darslik Tahlili',
                               ),
                             ),
                             const SizedBox(width: 8),
                             ActionChip(
-                              avatar: const Icon(Icons.gavel, color: Colors.amber, size: 16),
-                              label: const Text('⚖️ Ijara shartnomasi (Xavflar)'),
-                              backgroundColor: AppColors.primary.withOpacity(0.08),
-                              side: BorderSide(color: AppColors.primary.withOpacity(0.2)),
-                              onPressed: () => widget.onStartWithCategory(
-                                'Ijara yoki xizmat ko\'rsatish shartnomasida e\'tibor berish kerak bo\'lgan 5 ta eng xavfli nuqta va yashirin jarimalarni tahlil qiling.',
-                                'Shartnoma Tahlili',
+                              avatar: const Icon(Icons.quiz_rounded,
+                                  color: Colors.purpleAccent, size: 16),
+                              label: Text(
+                                AppStrings.tr('sample_quiz', currentLang),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            ActionChip(
-                              avatar: const Icon(Icons.quiz, color: Colors.teal, size: 16),
-                              label: const Text('🎓 Kitobdan Test (Quiz)'),
-                              backgroundColor: AppColors.primary.withOpacity(0.08),
-                              side: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+                              backgroundColor:
+                                  AppColors.primary.withOpacity(0.08),
+                              side: BorderSide(
+                                  color: AppColors.primary.withOpacity(0.2)),
                               onPressed: () => widget.onStartWithCategory(
-                                'Iltimos, ushbu mavzu yoki kitob bo\'yicha to\'rtta variantli 10 ta qiziqarli test savolini tuzib bering.',
+                                AppStrings.tr(
+                                    'sample_quiz_prompt', currentLang),
                                 'Test Generator',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ActionChip(
+                              avatar: const Icon(Icons.note_alt_rounded,
+                                  color: Colors.emerald, size: 16),
+                              label: Text(
+                                AppStrings.tr('sample_summary', currentLang),
+                              ),
+                              backgroundColor:
+                                  AppColors.primary.withOpacity(0.08),
+                              side: BorderSide(
+                                  color: AppColors.primary.withOpacity(0.2)),
+                              onPressed: () => widget.onStartWithCategory(
+                                AppStrings.tr(
+                                    'sample_summary_prompt', currentLang),
+                                'Konspekt',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ActionChip(
+                              avatar: const Icon(Icons.translate_rounded,
+                                  color: Colors.pinkAccent, size: 16),
+                              label: Text(
+                                AppStrings.tr('sample_language', currentLang),
+                              ),
+                              backgroundColor:
+                                  AppColors.primary.withOpacity(0.08),
+                              side: BorderSide(
+                                  color: AppColors.primary.withOpacity(0.2)),
+                              onPressed: () => widget.onStartWithCategory(
+                                AppStrings.tr(
+                                    'sample_language_prompt', currentLang),
+                                'Til O\'rganish',
                               ),
                             ),
                           ],
@@ -225,7 +345,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-            // Smart AI Quick Tools Feature Section
+            // Smart Education AI Quick Tools Section
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -244,7 +364,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Tezkor AI Asboblar',
+                              AppStrings.tr('education_tools', currentLang),
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -256,7 +376,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           ],
                         ),
                         Text(
-                          '1 marta bosish',
+                          AppStrings.tr('all_count', currentLang),
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark
@@ -274,62 +394,62 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         physics: const BouncingScrollPhysics(),
                         children: [
                           _buildQuickToolCard(
-                            icon: Icons.gavel_rounded,
-                            title: 'Shartnoma Rentgeni',
-                            subtitle: 'Xavf va jarimalarni tahlil qilish',
-                            color: const Color(0xFFF59E0B),
-                            isDark: isDark,
-                            onTap: () => widget.onStartWithCategory(
-                              'Ushbu shartnoma matnini chuqur tahlil qilib, yashirin xavflar, muddatlar va bir tomonlama jarimalarni ko\'rsatib bering:\n\n',
-                              'Shartnoma',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildQuickToolCard(
-                            icon: Icons.quiz_outlined,
-                            title: 'PDF -> Test (Quiz)',
-                            subtitle: 'Ma\'ruzadan 20 ta test tuzish',
-                            color: const Color(0xFF10B981),
-                            isDark: isDark,
-                            onTap: () => widget.onStartWithCategory(
-                              'Iltimos, ushbu ma\'ruza yoki kitob bo\'limi asosida 4 ta variantli 15 ta test savoli tuzib bering:\n\n',
-                              'Testlar',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildQuickToolCard(
-                            icon: Icons.summarize_outlined,
-                            title: 'Tezkor Xulosa',
-                            subtitle: 'Katta PDF-ni 1 daqiqada tushunish',
+                            icon: Icons.menu_book_rounded,
+                            title: ExploreCategory.categories[0]
+                                .getTitle(currentLang),
+                            subtitle: ExploreCategory.categories[0]
+                                .getDescription(currentLang),
                             color: const Color(0xFF3B82F6),
                             isDark: isDark,
                             onTap: () => widget.onStartWithCategory(
-                              'Ushbu uzun matn yoki hisobotning eng muhim 5 ta asosiy xulosasini chiqarib bering:\n\n',
-                              'Xulosa',
+                              ExploreCategory.categories[0]
+                                  .getStarterPrompt(currentLang),
+                              ExploreCategory.categories[0].id,
                             ),
                           ),
                           const SizedBox(width: 12),
                           _buildQuickToolCard(
-                            icon: Icons.edit_note_rounded,
-                            title: 'Matn Tahriri',
-                            subtitle: 'Imlo va rasmiy uslub',
-                            color: const Color(0xFFEC4899),
-                            isDark: isDark,
-                            onTap: () => widget.onStartWithCategory(
-                              'Iltimos, quyidagi matnimni imlo va uslubiy jihatdan tekshirib, yanada ravon va professional qilib bering:\n\n',
-                              'Tahrir',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildQuickToolCard(
-                            icon: Icons.slideshow_rounded,
-                            title: 'Slayd & Taqdimot',
-                            subtitle: '10 ta slayd rejasini tuzish',
+                            icon: Icons.quiz_rounded,
+                            title: ExploreCategory.categories[2]
+                                .getTitle(currentLang),
+                            subtitle: ExploreCategory.categories[2]
+                                .getDescription(currentLang),
                             color: const Color(0xFF8B5CF6),
                             isDark: isDark,
                             onTap: () => widget.onStartWithCategory(
-                              'Ushbu mavzu yoki hujjat asosida taqdimot uchun 10 ta slayd rejasini tayyorlab bering:\n\n',
-                              'Taqdimot',
+                              ExploreCategory.categories[2]
+                                  .getStarterPrompt(currentLang),
+                              ExploreCategory.categories[2].id,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildQuickToolCard(
+                            icon: Icons.note_alt_rounded,
+                            title: ExploreCategory.categories[1]
+                                .getTitle(currentLang),
+                            subtitle: ExploreCategory.categories[1]
+                                .getDescription(currentLang),
+                            color: const Color(0xFF10B981),
+                            isDark: isDark,
+                            onTap: () => widget.onStartWithCategory(
+                              ExploreCategory.categories[1]
+                                  .getStarterPrompt(currentLang),
+                              ExploreCategory.categories[1].id,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildQuickToolCard(
+                            icon: Icons.calculate_rounded,
+                            title: ExploreCategory.categories[4]
+                                .getTitle(currentLang),
+                            subtitle: ExploreCategory.categories[4]
+                                .getDescription(currentLang),
+                            color: const Color(0xFFF59E0B),
+                            isDark: isDark,
+                            onTap: () => widget.onStartWithCategory(
+                              ExploreCategory.categories[4]
+                                  .getStarterPrompt(currentLang),
+                              ExploreCategory.categories[4].id,
                             ),
                           ),
                         ],
@@ -342,7 +462,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-            // Document AI Tools Section Title
+            // Education Tools Grid Title
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -350,7 +470,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Hujjat & PDF AI Asboblar',
+                      AppStrings.tr('education_tools', currentLang),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -360,7 +480,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       ),
                     ),
                     Text(
-                      '8 ta vosita',
+                      AppStrings.tr('all_count', currentLang),
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark
@@ -375,7 +495,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-            // 2-Column Category Grid
+            // 2-Column Education Tools Grid
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverGrid(
@@ -391,14 +511,15 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   return GestureDetector(
                     onTap: () {
                       UiSoundFeedback.playItemClick();
-                      widget.onStartWithCategory(cat.starterPrompt, cat.id);
+                      widget.onStartWithCategory(
+                        cat.getStarterPrompt(currentLang),
+                        cat.id,
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.darkCard
-                            : AppColors.lightCard,
+                        color: isDark ? AppColors.darkCard : AppColors.lightCard,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isDark
@@ -421,9 +542,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           ),
                           const Spacer(),
                           Text(
-                            cat.title,
+                            cat.getTitle(currentLang),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: isDark
                                   ? AppColors.darkTextPrimary
@@ -432,7 +555,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            cat.description,
+                            cat.getDescription(currentLang),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

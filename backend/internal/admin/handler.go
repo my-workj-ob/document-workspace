@@ -55,8 +55,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		MAU              int64     `json:"mau"`
 		InputTokens      int64     `json:"input_tokens"`
 		OutputTokens     int64     `json:"output_tokens"`
-		CacheReadTokens  int64     `json:"cache_read_tokens"`
-		CacheWriteTokens int64     `json:"cache_write_tokens"`
 		EstimatedCostUSD float64   `json:"estimated_cost_usd"`
 		UpdatedAt        time.Time `json:"updated_at"`
 		DataSource       string    `json:"data_source"`
@@ -71,8 +69,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 			SELECT
 				COALESCE(SUM(input_tokens), 0)::bigint AS input_tokens,
 				COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
-				COALESCE(SUM(cache_read_tokens), 0)::bigint AS cache_read_tokens,
-				COALESCE(SUM(cache_write_tokens), 0)::bigint AS cache_write_tokens,
 				COALESCE(SUM(actual_cost_usd), 0)::double precision AS estimated_cost
 			FROM usage_ledger WHERE status = 'settled'
 		)
@@ -86,23 +82,28 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 			(SELECT COUNT(DISTINCT user_id) FROM usage_ledger WHERE status = 'settled' AND created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'),
 			(SELECT COUNT(DISTINCT user_id) FROM usage_ledger WHERE status = 'settled' AND created_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'),
 			token_totals.input_tokens, token_totals.output_tokens,
-			token_totals.cache_read_tokens, token_totals.cache_write_tokens,
 			token_totals.estimated_cost, CURRENT_TIMESTAMP
 		FROM token_totals
 	`, days).Scan(
 		&result.TotalUsers, &result.NewUsers, &result.ActiveUsers, &result.InactiveUsers,
 		&result.DAU, &result.WAU, &result.MAU, &result.InputTokens, &result.OutputTokens,
-		&result.CacheReadTokens, &result.CacheWriteTokens, &result.EstimatedCostUSD,
-		&result.UpdatedAt,
+		&result.EstimatedCostUSD, &result.UpdatedAt,
 	)
 	if err != nil {
 		h.writeDBError(w, r, "Dashboard metrikalarini yuklab bo'lmadi")
 		return
 	}
 	result.DataSource = "PostgreSQL: users, usage_ledger (settled)"
-	h.audit(r, "read", "overview")
+	if !h.audit(r, "read", "overview") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"metrics": result,
+		"cache_tokens": map[string]any{
+			"status": "unavailable",
+			"reason": "AI provider javoblarida caching token usage hozircha olinmaydi.",
+		},
 		"billing": map[string]any{
 			"provider_confirmed_balance": nil,
 			"provider_confirmed_spend":   nil,
@@ -170,7 +171,10 @@ func (h *Handler) Users(w http.ResponseWriter, r *http.Request) {
 		h.writeDBError(w, r, "Foydalanuvchilar ro'yxatini o'qib bo'lmadi")
 		return
 	}
-	h.audit(r, "read", "users")
+	if !h.audit(r, "read", "users") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"users": users, "limit": limit, "offset": offset,
 		"data_source": "PostgreSQL: users, usage_ledger, subscriptions",
@@ -242,7 +246,13 @@ func (h *Handler) UserDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	user["subscriptions"] = subs
 	user["updated_at"] = time.Now().UTC()
-	h.audit(r, "read", "users/"+id)
+	if !h.audit(r, "read", "users/"+id) {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
+	user["usage"].(map[string]any)["cache_read_tokens"] = nil
+	user["usage"].(map[string]any)["cache_write_tokens"] = nil
+	user["usage"].(map[string]any)["cache_tokens_status"] = "unavailable"
 	apphttp.WriteJSON(w, http.StatusOK, user)
 }
 
@@ -251,7 +261,6 @@ func (h *Handler) Usage(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(), `
 		SELECT COALESCE(m.provider, 'unknown'), l.model_id,
 			COALESCE(SUM(l.input_tokens), 0)::bigint, COALESCE(SUM(l.output_tokens), 0)::bigint,
-			COALESCE(SUM(l.cache_read_tokens), 0)::bigint, COALESCE(SUM(l.cache_write_tokens), 0)::bigint,
 			COALESCE(SUM(l.actual_cost_usd), 0)::double precision, COUNT(*)::bigint
 		FROM usage_ledger l LEFT JOIN models m ON m.id = l.model_id
 		WHERE l.status = 'settled' AND l.created_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day')
@@ -263,24 +272,23 @@ func (h *Handler) Usage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	models := make([]map[string]any, 0)
-	var input, output, cacheRead, cacheWrite int64
+	var input, output int64
 	var estimated float64
 	for rows.Next() {
 		var provider, model string
-		var i, o, cr, cw, count int64
+		var i, o, count int64
 		var cost float64
-		if err := rows.Scan(&provider, &model, &i, &o, &cr, &cw, &cost, &count); err != nil {
+		if err := rows.Scan(&provider, &model, &i, &o, &cost, &count); err != nil {
 			h.writeDBError(w, r, "Model metrikalarini o'qib bo'lmadi")
 			return
 		}
 		input += i
 		output += o
-		cacheRead += cr
-		cacheWrite += cw
 		estimated += cost
 		models = append(models, map[string]any{
 			"provider": provider, "model_id": model, "input_tokens": i, "output_tokens": o,
-			"cache_read_tokens": cr, "cache_write_tokens": cw, "estimated_cost_usd": cost,
+			"cache_read_tokens": nil, "cache_write_tokens": nil, "estimated_cost_usd": cost,
+			"token_count_source": "estimated_from_text_length",
 			"provider_confirmed_cost_usd": nil, "requests": count,
 		})
 	}
@@ -288,16 +296,111 @@ func (h *Handler) Usage(w http.ResponseWriter, r *http.Request) {
 		h.writeDBError(w, r, "Model metrikalari ro'yxatini o'qib bo'lmadi")
 		return
 	}
-	h.audit(r, "read", "usage")
+	if !h.audit(r, "read", "usage") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"period_days": days,
 		"totals": map[string]any{
-			"input_tokens": input, "output_tokens": output, "cache_read_tokens": cacheRead,
-			"cache_write_tokens": cacheWrite, "estimated_cost_usd": estimated,
+			"input_tokens": input, "output_tokens": output,
+			"cache_read_tokens": nil, "cache_write_tokens": nil,
+			"token_count_source": "estimated_from_text_length",
+			"estimated_cost_usd": estimated,
 			"provider_confirmed_cost_usd": nil,
 			"data_source": "PostgreSQL: usage_ledger + models; costs calculated using configured model prices",
 		},
-		"models": models, "updated_at": time.Now().UTC(),
+		"models": models, "cache_tokens_status": "unavailable", "updated_at": time.Now().UTC(),
+	})
+}
+
+func (h *Handler) Models(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT id, name, provider, provider_model_id, is_enabled,
+			input_price_per_million_usd::double precision,
+			output_price_per_million_usd::double precision,
+			is_free_tier, created_at
+		FROM models ORDER BY provider, name
+	`)
+	if err != nil {
+		h.writeDBError(w, r, "Model katalogini yuklab bo'lmadi")
+		return
+	}
+	defer rows.Close()
+	models := make([]map[string]any, 0)
+	for rows.Next() {
+		var id, name, provider, providerModelID string
+		var enabled, freeTier bool
+		var inputPrice, outputPrice float64
+		var createdAt time.Time
+		if err := rows.Scan(&id, &name, &provider, &providerModelID, &enabled,
+			&inputPrice, &outputPrice, &freeTier, &createdAt); err != nil {
+			h.writeDBError(w, r, "Model ma'lumotlarini o'qib bo'lmadi")
+			return
+		}
+		models = append(models, map[string]any{
+			"id": id, "name": name, "provider": provider, "provider_model_id": providerModelID,
+			"is_enabled": enabled, "input_price_per_million_usd": inputPrice,
+			"output_price_per_million_usd": outputPrice, "is_free_tier": freeTier,
+			"created_at": createdAt,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		h.writeDBError(w, r, "Model ro'yxatini o'qib bo'lmadi")
+		return
+	}
+	if !h.audit(r, "read", "models") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
+	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
+		"models": models,
+		"pricing_source": "PostgreSQL: models pricing catalog; prices are configured values, not provider invoices",
+		"updated_at": time.Now().UTC(),
+	})
+}
+
+func (h *Handler) Features(w http.ResponseWriter, r *http.Request) {
+	days := queryDays(r)
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT COALESCE(NULLIF(c.category, ''), 'uncategorized') AS category,
+			COUNT(DISTINCT l.generation_id)::bigint AS generations,
+			COUNT(DISTINCT l.user_id)::bigint AS users
+		FROM usage_ledger l
+		JOIN conversations c ON c.id = l.conversation_id
+		WHERE l.status = 'settled'
+			AND l.created_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day')
+		GROUP BY category ORDER BY generations DESC
+	`, days)
+	if err != nil {
+		h.writeDBError(w, r, "Funksiya foydalanish metrikalarini yuklab bo'lmadi")
+		return
+	}
+	defer rows.Close()
+	features := make([]map[string]any, 0)
+	for rows.Next() {
+		var category string
+		var generations, users int64
+		if err := rows.Scan(&category, &generations, &users); err != nil {
+			h.writeDBError(w, r, "Funksiya metrikalarini o'qib bo'lmadi")
+			return
+		}
+		features = append(features, map[string]any{
+			"category": category, "generations": generations, "users": users,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		h.writeDBError(w, r, "Funksiya metrikalari ro'yxatini o'qib bo'lmadi")
+		return
+	}
+	if !h.audit(r, "read", "features") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
+	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
+		"features": features, "period_days": days,
+		"data_source": "PostgreSQL: conversations.category + settled usage_ledger; no chat content",
+		"updated_at": time.Now().UTC(),
 	})
 }
 
@@ -333,7 +436,10 @@ func (h *Handler) Subscriptions(w http.ResponseWriter, r *http.Request) {
 		h.writeDBError(w, r, "Obunalar ro'yxatini o'qib bo'lmadi")
 		return
 	}
-	h.audit(r, "read", "subscriptions")
+	if !h.audit(r, "read", "subscriptions") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"subscriptions": list,
 		"payments": map[string]any{
@@ -365,7 +471,10 @@ func (h *Handler) System(w http.ResponseWriter, r *http.Request) {
 		h.writeDBError(w, r, "Tizim holatini yuklab bo'lmadi")
 		return
 	}
-	h.audit(r, "read", "system")
+	if !h.audit(r, "read", "system") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{
 		"api": map[string]any{"status": "connected", "source": "Cognidoc API"},
 		"database": map[string]any{"status": dbStatus, "source": "PostgreSQL ping"},
@@ -407,22 +516,29 @@ func (h *Handler) Audit(w http.ResponseWriter, r *http.Request) {
 			"resource": resource, "created_at": createdAt,
 		})
 	}
+	if err := rows.Err(); err != nil {
+		h.writeDBError(w, r, "Audit yozuvlarini o'qib bo'lmadi")
+		return
+	}
+	if !h.audit(r, "read", "audit") {
+		h.writeDBError(w, r, "Audit yozuvini saqlab bo'lmadi")
+		return
+	}
 	apphttp.WriteJSON(w, http.StatusOK, map[string]any{"entries": entries, "updated_at": time.Now().UTC()})
 }
 
-func (h *Handler) audit(r *http.Request, action, resource string) {
+func (h *Handler) audit(r *http.Request, action, resource string) bool {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		return
+		return false
 	}
 	if _, err := h.pool.Exec(r.Context(), `
 		INSERT INTO admin_audit_logs (admin_user_id, action, resource)
 		VALUES ($1::uuid, $2, $3)
 	`, userID, action, resource); err != nil {
-		// Query success should not be hidden if the required audit write fails.
-		// The endpoint handlers check this through the request context cancellation path.
-		return
+		return false
 	}
+	return true
 }
 
 func (h *Handler) writeDBError(w http.ResponseWriter, r *http.Request, message string) {
@@ -449,6 +565,8 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/users", h.Users)
 	r.Get("/users/{userID}", h.UserDetail)
 	r.Get("/usage", h.Usage)
+	r.Get("/models", h.Models)
+	r.Get("/features", h.Features)
 	r.Get("/subscriptions", h.Subscriptions)
 	r.Get("/system", h.System)
 	r.Get("/audit", h.Audit)

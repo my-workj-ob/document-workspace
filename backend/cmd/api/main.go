@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"ai-chat-backend/internal/ai"
+	"ai-chat-backend/internal/admin"
 	"ai-chat-backend/internal/auth"
 	"ai-chat-backend/internal/billing"
 	"ai-chat-backend/internal/config"
@@ -346,6 +347,9 @@ func main() {
 	if err := db.AutoMigrate(ctx, initialSchemaSQL); err != nil {
 		log.Printf("[WARN] AutoMigrate warning: %v", err)
 	}
+	if err := db.AutoMigrate(ctx, admin.SchemaSQL); err != nil {
+		log.Fatalf("[FATAL] Admin schema initialization failed: %v", err)
+	}
 
 	// 2. Initialize AI Provider
 	aiProvider := ai.NewOpenAICompatibleProvider(
@@ -389,6 +393,8 @@ func main() {
 	billingHandler := handlers.NewBillingHandler(revenueCatHandler, plansService, db.Pool)
 	filesHandler := handlers.NewFilesHandler(filesService, plansService)
 	healthHandler := handlers.NewHealthHandler(db)
+	adminHandler := admin.NewHandler(db.Pool, cfg.AIAPIKey != "", cfg.AIBaseURL)
+	adminAuthorizer := admin.NewAuthorizer(db.Pool)
 
 	authenticator := middleware.NewAuthenticator(cfg.JWTSecret)
 
@@ -485,6 +491,11 @@ func main() {
 			protected.Get("/files/{id}", filesHandler.GetMetadata)
 			protected.Get("/files/{id}/download", filesHandler.Download)
 			protected.Delete("/files/{id}", filesHandler.Delete)
+
+			protected.Route("/admin", func(adminRouter chi.Router) {
+				adminRouter.Use(adminAuthorizer.RequireAdmin)
+				adminHandler.Routes(adminRouter)
+			})
 		})
 	})
 

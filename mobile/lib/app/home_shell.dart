@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/localization/app_locale.dart';
 import '../core/theme/app_colors.dart';
 import '../features/chat/presentation/chat_screen.dart';
 import '../features/chat/providers/chat_provider.dart';
@@ -39,6 +40,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentLang = ref.watch(appLanguageProvider);
 
     final screens = [
       ExploreScreen(
@@ -76,9 +78,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildNavItem(0, Icons.grid_view_rounded, 'Asboblar'),
-                _buildNavItem(1, Icons.chat_bubble_rounded, 'Chat'),
-                _buildNavItem(2, Icons.person_rounded, 'Profil'),
+                _buildNavItem(0, Icons.grid_view_rounded, AppStrings.tr('nav_tools', currentLang)),
+                _buildNavItem(1, Icons.chat_bubble_rounded, AppStrings.tr('nav_chat', currentLang)),
+                _buildNavItem(2, Icons.person_rounded, AppStrings.tr('nav_profile', currentLang)),
               ],
             ),
           ),
