@@ -98,10 +98,10 @@ func (q *QuotaService) ReserveQuota(
 	err = tx.QueryRow(ctx, `
 		SELECT 
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '1 hour'),
-			COUNT(*) FILTER (WHERE created_at >= date_trunc('day', CURRENT_TIMESTAMP)),
-			COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_TIMESTAMP))
+			COUNT(*) FILTER (WHERE created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date),
+			COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent'))
 		FROM usage_ledger
-		WHERE user_id = $1 AND status IN ('reserved', 'settled')
+		WHERE user_id = $1::uuid AND status IN ('reserved', 'settled')
 	`, userID).Scan(&hourlyCount, &dailyCount, &weeklyCount)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", fmt.Errorf("failed to check usage ledger: %w", err)

@@ -25,6 +25,14 @@ class PlansScreen extends ConsumerStatefulWidget {
 class _PlansScreenState extends ConsumerState<PlansScreen> {
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.invalidate(userEntitlementsProvider);
+    });
+  }
+
   void _openCheckout(String planId) {
     PaymentBottomSheet.show(context, planId: planId);
   }
@@ -262,9 +270,16 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                       'Maximum context window & deep semantic search',
                     ];
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            children: [
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(userEntitlementsProvider);
+              ref.invalidate(plansListProvider);
+              await ref.read(userEntitlementsProvider.future);
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              children: [
               // Header description
               Text(
                 AppStrings.tr('plans_header_label', currentLang),
@@ -407,8 +422,9 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
 
               const SizedBox(height: 32),
             ],
-          );
-        },
+          ),
+        );
+      },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
       ),

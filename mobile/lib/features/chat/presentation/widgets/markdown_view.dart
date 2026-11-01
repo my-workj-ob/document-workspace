@@ -4,6 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../../../core/theme/app_colors.dart';
+import 'math_renderer.dart';
 
 class MarkdownView extends StatelessWidget {
   final String content;
@@ -116,19 +117,28 @@ class MarkdownView extends StatelessWidget {
       tableVerticalAlignment: TableCellVerticalAlignment.middle,
     );
 
+    final segments = splitContentSegments(processedContent);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MarkdownBody(
-          data: processedContent,
+      children: segments.map((segment) {
+        if (segment.isMathBlock) {
+          return MathBlockCard(formula: segment.content);
+        }
+
+        final formattedMarkdown =
+            MathRenderer.formatInlineMathInMarkdown(segment.content);
+
+        return MarkdownBody(
+          data: formattedMarkdown,
           selectable: true,
           styleSheet: markdownStyle,
           builders: {
             'code': _CodeElementBuilder(context, isDark: isDark),
           },
           onTapLink: (text, href, title) {},
-        ),
-      ],
+        );
+      }).toList(),
     );
   }
 }

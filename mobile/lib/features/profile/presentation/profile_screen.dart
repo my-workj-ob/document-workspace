@@ -121,11 +121,17 @@ class ProfileScreen extends ConsumerWidget {
         title: Text(AppStrings.tr('profile_title', currentLang)),
         centerTitle: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        children: [
-          // 1. User Info Header Card
-          Container(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(userEntitlementsProvider);
+          await ref.read(userEntitlementsProvider.future);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          children: [
+            // 1. User Info Header Card
+            Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkCard : AppColors.lightCard,
@@ -644,6 +650,6 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 30),
         ],
       ),
-    );
+    ));
   }
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -226,14 +227,17 @@ func (s *Service) ResolveUserEntitlement(ctx context.Context, userID string) (*U
 
 	// 2. Count used requests across Hourly, Daily, and Weekly windows
 	var hourlyUsed, dailyUsed, weeklyUsed int
-	_ = s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		SELECT 
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '1 hour'),
-			COUNT(*) FILTER (WHERE created_at >= date_trunc('day', CURRENT_TIMESTAMP)),
-			COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_TIMESTAMP))
+			COUNT(*) FILTER (WHERE created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date),
+			COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent'))
 		FROM usage_ledger
-		WHERE user_id = $1 AND status IN ('reserved', 'settled')
+		WHERE user_id = $1::uuid AND status IN ('reserved', 'settled')
 	`, userID).Scan(&hourlyUsed, &dailyUsed, &weeklyUsed)
+	if err != nil {
+		log.Printf("[WARN] [Plans] Failed to query usage counts for user %s: %v", userID, err)
+	}
 
 	remainingHourly := plan.HourlyRequests - hourlyUsed
 	if remainingHourly < 0 {
@@ -312,12 +316,12 @@ func (s *Service) GetUserUsage(ctx context.Context, userID string) (*UsageSummar
 	_ = s.pool.QueryRow(ctx, `
 		SELECT 
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '1 hour'),
-			COUNT(*) FILTER (WHERE created_at >= date_trunc('day', CURRENT_TIMESTAMP)),
-			COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_TIMESTAMP)),
-			COALESCE(SUM(input_tokens + output_tokens) FILTER (WHERE created_at >= date_trunc('month', CURRENT_TIMESTAMP)), 0),
-			COALESCE(SUM(actual_cost_usd) FILTER (WHERE created_at >= date_trunc('month', CURRENT_TIMESTAMP)), 0.0)
+			COUNT(*) FILTER (WHERE created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date),
+			COUNT(*) FILTER (WHERE created_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')),
+			COALESCE(SUM(input_tokens + output_tokens) FILTER (WHERE created_at >= date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')), 0),
+			COALESCE(SUM(actual_cost_usd) FILTER (WHERE created_at >= date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')), 0.0)
 		FROM usage_ledger
-		WHERE user_id = $1 AND status IN ('reserved', 'settled')
+		WHERE user_id = $1::uuid AND status IN ('reserved', 'settled')
 	`, userID).Scan(&hourlyCount, &todayCount, &weeklyCount, &monthTokens, &monthCost)
 
 	remHourly := entitlement.HourlyRequestsLimit - hourlyCount

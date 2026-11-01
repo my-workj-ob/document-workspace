@@ -33,6 +33,9 @@ final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>((ref) {
           .createConversation();
       return conv?.id;
     },
+    onQuotaConsumed: () {
+      ref.invalidate(userEntitlementsProvider);
+    },
   );
 });
 
@@ -44,6 +47,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final void Function(String convId, DateTime time, String? title)
   onConversationUpdated;
   final Future<String?> Function() onCreateConversation;
+  final void Function()? onQuotaConsumed;
 
   SSEClient? _activeSSEClient;
   StreamSubscription<SSEEvent>? _sseSubscription;
@@ -58,6 +62,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     required this.getSelectedModel,
     required this.onConversationUpdated,
     required this.onCreateConversation,
+    this.onQuotaConsumed,
   }) : super(const ChatState());
 
   @override
@@ -532,6 +537,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
               activeGenerationId: null,
             );
           }
+          onQuotaConsumed?.call();
         },
         cancelOnError: true,
       );
