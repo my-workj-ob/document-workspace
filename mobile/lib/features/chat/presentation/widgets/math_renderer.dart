@@ -88,6 +88,12 @@ class MathRenderer {
   };
 
   static const Map<String, String> _latexSymbols = {
+    r'\dots': '…',
+    r'\ldots': '…',
+    r'\cdots': '⋯',
+    r'\vdots': '⋮',
+    r'\ddots': '⋱',
+    r'\colon': ':',
     r'\times': '×',
     r'\cdot': '·',
     r'\div': '÷',
@@ -174,19 +180,76 @@ class MathRenderer {
     if (text.isEmpty) return text;
     String res = text;
 
-    // 1. Convert LaTeX symbols
+    // 1. Handle \underbrace{A \cdot B}_{k \text{ marta}} -> A · B (k marta)
+    res = res.replaceAllMapped(
+      RegExp(r'\\underbrace\{([^}]+)\}(?:_\{([^}]+)\}|_([a-zA-Z0-9]))?'),
+      (m) {
+        final content = m.group(1)!;
+        final label = m.group(2) ?? m.group(3);
+        if (label != null && label.isNotEmpty) {
+          final cleanLabel = label.replaceAll(RegExp(r'\\text\{([^}]+)\}'), r'$1').replaceAll(r'\text', '').trim();
+          return '$content ($cleanLabel)';
+        }
+        return content;
+      },
+    );
+
+    // 2. Handle \overbrace{A \cdot B}^{k} -> A · B (k)
+    res = res.replaceAllMapped(
+      RegExp(r'\\overbrace\{([^}]+)\}(?:\^\{([^}]+)\}|\^([a-zA-Z0-9]))?'),
+      (m) {
+        final content = m.group(1)!;
+        final label = m.group(2) ?? m.group(3);
+        if (label != null && label.isNotEmpty) {
+          final cleanLabel = label.replaceAll(RegExp(r'\\text\{([^}]+)\}'), r'$1').replaceAll(r'\text', '').trim();
+          return '$content ($cleanLabel)';
+        }
+        return content;
+      },
+    );
+
+    // 3. Known number sets: \mathbb{R}, \mathbb R, \mathbbR -> ℝ, etc.
+    res = res.replaceAll(RegExp(r'\\mathbb\{?R\}?'), 'ℝ')
+             .replaceAll(RegExp(r'\\mathbb\{?C\}?'), 'ℂ')
+             .replaceAll(RegExp(r'\\mathbb\{?N\}?'), 'ℕ')
+             .replaceAll(RegExp(r'\\mathbb\{?Z\}?'), 'ℤ')
+             .replaceAll(RegExp(r'\\mathbb\{?Q\}?'), 'ℚ');
+
+    // Generic \mathbb{X} or \mathbbX -> X
+    res = res.replaceAllMapped(RegExp(r'\\mathbb\{([^}]+)\}'), (m) => m.group(1)!);
+    res = res.replaceAllMapped(RegExp(r'\\mathbb([a-zA-Z])'), (m) => m.group(1)!);
+
+    // 4. \mathbf{x}, \boldsymbol{x}, \bm{x} -> x
+    res = res.replaceAllMapped(RegExp(r'\\(?:mathbf|boldsymbol|bm)\{([^}]+)\}'), (m) => m.group(1)!);
+    res = res.replaceAllMapped(RegExp(r'\\(?:mathbf|boldsymbol|bm)([a-zA-Z0-9])'), (m) => m.group(1)!);
+
+    // 5. Text and operator wrappers: \text{adj}, \operatorname{adj}, \mathrm{...}, etc.
+    res = res.replaceAllMapped(
+      RegExp(r'\\(?:text|operatorname|mathrm|textbf|textit|textsf|texttt)\{([^}]+)\}'),
+      (m) => m.group(1)!,
+    );
+    // Standalone \textadj, \adj, \operatornameadj -> adj
+    res = res.replaceAll(RegExp(r'\\(?:textadj|operatornameadj|adj)\b'), 'adj');
+
+    // 6. Vector, hat, bar, tilde: \vec{x} -> x⃗
+    res = res.replaceAllMapped(RegExp(r'\\vec\{([^}]+)\}'), (m) => '${m.group(1)!}⃗');
+    res = res.replaceAllMapped(RegExp(r'\\vec([a-zA-Z])'), (m) => '${m.group(1)!}⃗');
+    res = res.replaceAllMapped(RegExp(r'\\(?:hat|bar|tilde)\{([^}]+)\}'), (m) => m.group(1)!);
+    res = res.replaceAllMapped(RegExp(r'\\(?:hat|bar|tilde)([a-zA-Z])'), (m) => m.group(1)!);
+
+    // 7. Convert LaTeX symbols
     _latexSymbols.forEach((k, v) {
       res = res.replaceAll(k, v);
     });
 
-    // 2. Fractions in text: \frac{a}{b} -> (a / b)
+    // 8. Fractions in text: \frac{a}{b} -> (a / b)
     res = res.replaceAllMapped(RegExp(r'\\frac\{([^}]+)\}\{([^}]+)\}'), (m) {
       final num = formatMathText(m.group(1)!);
       final den = formatMathText(m.group(2)!);
       return '($num / $den)';
     });
 
-    // 3. Superscripts: ^{exp} or ^char
+    // 9. Superscripts: ^{exp} or ^char
     res = res.replaceAllMapped(RegExp(r'\^\{([^}]+)\}'), (m) {
       final inner = m.group(1)!;
       if (_superscripts.containsKey(inner)) {
@@ -200,7 +263,7 @@ class MathRenderer {
       return _superscripts[c] ?? '^$c';
     });
 
-    // 4. Subscripts: _{sub} or _char
+    // 10. Subscripts: _{sub} or _char
     res = res.replaceAllMapped(RegExp(r'_\{([^}]+)\}'), (m) {
       final inner = m.group(1)!;
       return inner.split('').map((c) => _subscripts[c] ?? c).join();
@@ -211,27 +274,95 @@ class MathRenderer {
       return _subscripts[c] ?? '_$c';
     });
 
-    // 5. Clean unnecessary leftover curly braces
+    // 11. Clean unnecessary leftover curly braces & backslashes
     res = res.replaceAll('{', '').replaceAll('}', '');
+    res = res.replaceAllMapped(RegExp(r'\\([a-zA-Z]+)'), (m) => m.group(1)!);
 
     return res.trim();
   }
 
-  /// Pre-processes inline markdown containing $...$ so math renders cleanly in text
+  /// Cleans and formats inline math expressions and raw LaTeX commands in markdown text
   static String formatInlineMathInMarkdown(String markdown) {
     if (markdown.isEmpty) return markdown;
 
-    // Matches $ ... $ but not $$ ... $$
+    // 1. Matches $ ... $ but not $$ ... $$
     final inlineMathRegex = RegExp(r'(?<!\$)\$(?!\$)([^\n$]+?)(?<!\$)\$(?!\$)');
 
-    return markdown.replaceAllMapped(inlineMathRegex, (match) {
+    String result = markdown.replaceAllMapped(inlineMathRegex, (match) {
       final rawMath = match.group(1)!.trim();
       if (rawMath.isEmpty) return match.group(0)!;
 
       final formatted = formatMathText(rawMath);
-      // Wrap in bold or italic for math distinction
       return '**$formatted**';
     });
+
+    // 2. Also format unwrapped LaTeX commands output directly by LLMs in Markdown text
+    result = _cleanMarkdownInlineLatex(result);
+
+    return result;
+  }
+
+  /// Cleans LaTeX commands that appear outside $...$ in raw markdown text
+  static String _cleanMarkdownInlineLatex(String text) {
+    if (!text.contains(r'\')) return text;
+
+    String res = text;
+
+    // Common sets: \mathbb{R}, \mathbb R, \mathbbR -> ℝ, etc.
+    res = res.replaceAll(RegExp(r'\\mathbb\{?R\}?'), 'ℝ')
+             .replaceAll(RegExp(r'\\mathbb\{?C\}?'), 'ℂ')
+             .replaceAll(RegExp(r'\\mathbb\{?N\}?'), 'ℕ')
+             .replaceAll(RegExp(r'\\mathbb\{?Z\}?'), 'ℤ')
+             .replaceAll(RegExp(r'\\mathbb\{?Q\}?'), 'ℚ');
+
+    // \mathbf{x}, \mathbfx -> x
+    res = res.replaceAllMapped(RegExp(r'\\(?:mathbf|boldsymbol|bm)\{([^}]+)\}'), (m) => m.group(1)!);
+    res = res.replaceAllMapped(RegExp(r'\\(?:mathbf|boldsymbol|bm)([a-zA-Z0-9])'), (m) => m.group(1)!);
+
+    // Standalone \textadj, \adj
+    res = res.replaceAll(RegExp(r'\\(?:textadj|adj)\b'), 'adj');
+
+    // LaTeX symbols
+    res = res.replaceAll(r'\to', '→')
+             .replaceAll(r'\rightarrow', '→')
+             .replaceAll(r'\leftarrow', '←')
+             .replaceAll(r'\times', '×')
+             .replaceAll(r'\cdot', '·')
+             .replaceAll(r'\dots', '…')
+             .replaceAll(r'\ldots', '…')
+             .replaceAll(r'\cdots', '⋯')
+             .replaceAll(r'\vdots', '⋮')
+             .replaceAll(r'\ddots', '⋱')
+             .replaceAll(r'\in', '∈')
+             .replaceAll(r'\notin', '∉')
+             .replaceAll(r'\neq', '≠')
+             .replaceAll(r'\leq', '≤')
+             .replaceAll(r'\geq', '≥')
+             .replaceAll(r'\approx', '≈')
+             .replaceAll(r'\det', 'det');
+
+    // Superscripts in text: ^n -> ⁿ, ^m -> ᵐ, ^-1 -> ⁻¹
+    res = res.replaceAllMapped(RegExp(r'\^\{([^}]+)\}'), (m) {
+      final inner = m.group(1)!;
+      if (_superscripts.containsKey(inner)) return _superscripts[inner]!;
+      return inner.split('').map((c) => _superscripts[c] ?? c).join();
+    });
+    res = res.replaceAllMapped(RegExp(r'\^([a-zA-Z0-9+-])'), (m) {
+      final c = m.group(1)!;
+      return _superscripts[c] ?? '^$c';
+    });
+
+    // Subscripts in text: _i -> ᵢ, _j -> ⱼ, _1 -> ₁
+    res = res.replaceAllMapped(RegExp(r'_\{([^}]+)\}'), (m) {
+      final inner = m.group(1)!;
+      return inner.split('').map((c) => _subscripts[c] ?? c).join();
+    });
+    res = res.replaceAllMapped(RegExp(r'_([a-zA-Z0-9+-])'), (m) {
+      final c = m.group(1)!;
+      return _subscripts[c] ?? '_$c';
+    });
+
+    return res;
   }
 }
 
@@ -575,7 +706,24 @@ class MathBlockCard extends StatelessWidget {
 
   Widget _buildSingleMatrix(String type, String body, bool isDark) {
     final rowsRaw = _splitRows(body);
-    final rows = rowsRaw.map((r) => r.split('&').map((c) => c.trim()).toList()).toList();
+    final rawRows = rowsRaw.map((r) => r.split('&').map((c) => c.trim()).toList()).toList();
+    if (rawRows.isEmpty) return const SizedBox.shrink();
+
+    // Determine max columns across all rows
+    int maxCols = 0;
+    for (final r in rawRows) {
+      if (r.length > maxCols) maxCols = r.length;
+    }
+    if (maxCols == 0) return const SizedBox.shrink();
+
+    // Pad every row so every TableRow has EXACTLY the same number of children
+    final rows = rawRows.map((r) {
+      final padded = List<String>.from(r);
+      while (padded.length < maxCols) {
+        padded.add('');
+      }
+      return padded;
+    }).toList();
 
     final isDeterminant = type == 'vmatrix';
     final isSquareBracket = type == 'bmatrix';
@@ -622,11 +770,11 @@ class MathBlockCard extends StatelessWidget {
   }
 
   List<String> _splitRows(String body) {
-    // Normalizes row separators: \\ or \4 (LLM escaped slash followed by number/minus)
-    String normalized = body.replaceAll(r'\\', '###ROW###');
-
-    // Handle single slash before digits or letters: e.g. \4, \-, \2
-    normalized = normalized.replaceAllMapped(RegExp(r'\\(?=[0-9\-a-zA-Z])'), (m) => '###ROW###');
+    // Normalizes row separators: \\, \cr, \newline
+    String normalized = body
+        .replaceAll(r'\\', '###ROW###')
+        .replaceAll(r'\cr', '###ROW###')
+        .replaceAll(r'\newline', '###ROW###');
 
     // Split by normalized row tag or newlines
     final parts = normalized.split(RegExp(r'###ROW###|\n'));

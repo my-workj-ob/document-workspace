@@ -22,17 +22,72 @@ class MarkdownView extends StatelessWidget {
       sanitized += '\n```\n';
     }
 
-    // 2. Sanitize incomplete streaming table rows if needed
-    final lines = sanitized.split('\n');
-    if (lines.isNotEmpty) {
-      final lastLine = lines.last.trim();
-      if (lastLine.startsWith('|') && !lastLine.endsWith('|')) {
-        lines[lines.length - 1] = '$lastLine |';
-        sanitized = lines.join('\n');
+    // 2. Sanitize and normalize table rows to prevent irregular TableRow lengths
+    sanitized = _normalizeMarkdownTables(sanitized);
+
+    return sanitized;
+  }
+
+  static String _normalizeMarkdownTables(String text) {
+    if (!text.contains('|')) return text;
+
+    final lines = text.split('\n');
+    final result = <String>[];
+    int i = 0;
+
+    while (i < lines.length) {
+      final line = lines[i];
+      final trimmed = line.trim();
+
+      // Check if line looks like a markdown table row
+      if (trimmed.startsWith('|') || (line.contains('|') && trimmed.endsWith('|'))) {
+        final tableLines = <String>[];
+        while (i < lines.length &&
+            (lines[i].trim().startsWith('|') ||
+                (lines[i].contains('|') && lines[i].trim().endsWith('|')))) {
+          tableLines.add(lines[i]);
+          i++;
+        }
+
+        if (tableLines.length >= 2) {
+          final parsedRows = <List<String>>[];
+          int maxCells = 0;
+
+          for (final tl in tableLines) {
+            String t = tl.trim();
+            if (t.startsWith('|')) t = t.substring(1);
+            if (t.endsWith('|')) t = t.substring(0, t.length - 1);
+            final cells = t.split('|').map((c) => c.trim()).toList();
+            if (cells.length > maxCells) {
+              maxCells = cells.length;
+            }
+            parsedRows.add(cells);
+          }
+
+          if (maxCells > 0) {
+            for (int r = 0; r < tableLines.length; r++) {
+              final cells = parsedRows[r];
+              final isDelimiter = cells.every((c) =>
+                  c.replaceAll(RegExp(r'[:\-\s]'), '').isEmpty && c.contains('-'));
+
+              while (cells.length < maxCells) {
+                cells.add(isDelimiter ? '---' : '');
+              }
+              result.add('| ${cells.join(' | ')} |');
+            }
+          } else {
+            result.addAll(tableLines);
+          }
+        } else {
+          result.addAll(tableLines);
+        }
+      } else {
+        result.add(line);
+        i++;
       }
     }
 
-    return sanitized;
+    return result.join('\n');
   }
 
   @override
