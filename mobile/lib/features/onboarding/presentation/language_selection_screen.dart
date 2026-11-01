@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/home_shell.dart';
 import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_sound_feedback.dart';
+import '../../auth/presentation/login_screen.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
 class LanguageSelectionScreen extends ConsumerStatefulWidget {
@@ -41,16 +44,24 @@ class _LanguageSelectionScreenState
     // 2. Mark onboarding as completed if this was part of first launch
     if (!widget.isStandalone) {
       await ref.read(onboardingProvider.notifier).completeOnboarding();
+      widget.onFinished?.call();
+      if (!mounted) return;
+      final isAuthenticated = ref.read(authProvider).isAuthenticated;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) =>
+              isAuthenticated ? const HomeShell() : const LoginScreen(),
+        ),
+        (route) => false,
+      );
+      return;
     }
 
-    // 3. Callback or pop
+    // 3. Standalone mode (opened from Settings/Profile): callback or pop
     if (widget.onFinished != null) {
       widget.onFinished!();
-    } else {
-      if (!mounted) return;
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+    } else if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 

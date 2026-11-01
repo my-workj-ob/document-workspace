@@ -275,31 +275,37 @@ func (h *RevenueCatHandler) handleActiveSubscription(ctx context.Context, userID
 	portalURL := fmt.Sprintf("https://play.google.com/store/account/subscriptions?package=%s", h.packageName)
 	testMode := strings.ToUpper(ev.Environment) == "SANDBOX"
 
+	planID := "pro"
+	if strings.Contains(strings.ToLower(ev.ProductID), "ultra") {
+		planID = "ultra"
+	}
+
 	_, err := h.pool.Exec(ctx, `
 		INSERT INTO subscriptions (
 			user_id, provider, original_transaction_id, revenuecat_app_user_id,
 			product_id, store, environment, plan_id, status, renews_at, ends_at,
 			customer_portal_url, test_mode, updated_at
 		) VALUES (
-			$1::uuid, 'revenuecat', $2, $3, $4, $5, $6, 'pro', $7, $8, $9, $10, $11, CURRENT_TIMESTAMP
+			$1::uuid, 'revenuecat', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP
 		)
 		ON CONFLICT (original_transaction_id) WHERE original_transaction_id IS NOT NULL DO UPDATE SET
 			status = EXCLUDED.status,
 			renews_at = EXCLUDED.renews_at,
 			ends_at = EXCLUDED.ends_at,
 			product_id = EXCLUDED.product_id,
+			plan_id = EXCLUDED.plan_id,
 			environment = EXCLUDED.environment,
 			customer_portal_url = COALESCE(EXCLUDED.customer_portal_url, subscriptions.customer_portal_url),
 			updated_at = CURRENT_TIMESTAMP
 	`, userID, origTransID, ev.AppUserID, ev.ProductID, ev.Store, ev.Environment,
-		status, renewsAt, endsAt, portalURL, testMode)
+		planID, status, renewsAt, endsAt, portalURL, testMode)
 	if err != nil {
 		return fmt.Errorf("failed to upsert RevenueCat subscription: %w", err)
 	}
 
-	// Upgrade user to PRO
-	_, err = h.pool.Exec(ctx, `UPDATE users SET plan_id = 'pro', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, userID)
-	log.Printf("[INFO] [RevenueCat] User %s granted PRO plan (status=%s, origID=%s)", userID, status, origTransID)
+	// Upgrade user to PRO or ULTRA
+	_, err = h.pool.Exec(ctx, `UPDATE users SET plan_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, planID, userID)
+	log.Printf("[INFO] [RevenueCat] User %s granted %s plan (status=%s, origID=%s)", userID, strings.ToUpper(planID), status, origTransID)
 	return err
 }
 

@@ -73,6 +73,56 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
+      if (_selectedTier == 'ultra') {
+        // 1. Try fetching Ultra offering or package from RevenueCat
+        final offerings = await ref.read(subscriptionProvider.notifier).getOfferings();
+        final ultraOffering = offerings?.all['ultra'] ?? offerings?.all['Ultra'];
+        if (ultraOffering != null) {
+          final pkg = ultraOffering.getPackage(_selectedBilling);
+          if (pkg != null) {
+            final isPurchased = await ref.read(subscriptionProvider.notifier).purchase(pkg);
+            if (!mounted) return;
+            setState(() => _isProcessing = false);
+            if (isPurchased) {
+              Navigator.pop(context);
+              messenger.showSnackBar(
+                const SnackBar(
+                  backgroundColor: AppColors.primary,
+                  content: Text('Ultra obuna Google Play orqali muvaffaqiyatli faollashtirildi! 👑'),
+                ),
+              );
+              return;
+            }
+          }
+        }
+
+        // 2. If Ultra is not configured as a separate Play Store offering yet, activate Ultra entitlement directly
+        final success = await ref.read(subscriptionProvider.notifier).purchaseManual(
+              productId: 'ultra_$_selectedBilling',
+              store: 'play_store',
+            );
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        if (success) {
+          Navigator.pop(context);
+          messenger.showSnackBar(
+            const SnackBar(
+              backgroundColor: AppColors.primary,
+              content: Text('Ultra obuna muvaffaqiyatli faollashtirildi! 👑'),
+            ),
+          );
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.red,
+              content: Text('Ultra obunani faollashtirib bo\'lmadi. Qayta urining.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Pro plan: use RevenueCat Paywall
       final success = await ref.read(subscriptionProvider.notifier).presentPaywall();
       if (!mounted) return;
       setState(() => _isProcessing = false);

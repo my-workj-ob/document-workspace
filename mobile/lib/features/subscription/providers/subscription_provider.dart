@@ -133,6 +133,11 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     }
   }
 
+  /// Retrieves offerings configured in RevenueCat.
+  Future<Offerings?> getOfferings() async {
+    return await _service.getOfferings();
+  }
+
   /// Presents the official RevenueCat paywall.
   Future<bool> presentPaywall() async {
     state = state.copyWith(status: SubscriptionStatus.purchasing);
