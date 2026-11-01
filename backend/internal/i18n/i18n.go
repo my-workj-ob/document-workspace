@@ -22,42 +22,42 @@ const (
 func ParseLocale(header string) string {
 	raw := strings.ToLower(strings.TrimSpace(header))
 	if raw == "" {
-		return LocaleUZ
+		return LocaleEN
 	}
 
-	// Examples: "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7", "en", "uz-UZ", "ru"
+	// Examples: "en-US,en;q=0.9,ru;q=0.8,uz;q=0.7", "en", "uz-UZ", "ru"
 	parts := strings.Split(raw, ",")
 	for _, part := range parts {
 		sub := strings.TrimSpace(strings.Split(part, ";")[0])
-		if strings.HasPrefix(sub, "ru") {
-			return LocaleRU
-		}
 		if strings.HasPrefix(sub, "en") {
 			return LocaleEN
+		}
+		if strings.HasPrefix(sub, "ru") {
+			return LocaleRU
 		}
 		if strings.HasPrefix(sub, "uz") {
 			return LocaleUZ
 		}
 	}
 
-	return LocaleUZ
+	return LocaleEN
 }
 
-// GetLocale extracts the resolved locale from context, or defaults to "uz".
+// GetLocale extracts the resolved locale from context, or defaults to "en".
 func GetLocale(ctx context.Context) string {
 	if ctx == nil {
-		return LocaleUZ
+		return LocaleEN
 	}
 	if loc, ok := ctx.Value(LocaleKey).(string); ok && loc != "" {
 		return loc
 	}
-	return LocaleUZ
+	return LocaleEN
 }
 
 // GetLocaleFromRequest extracts the locale from the request context or Accept-Language header.
 func GetLocaleFromRequest(r *http.Request) string {
 	if r == nil {
-		return LocaleUZ
+		return LocaleEN
 	}
 	if loc, ok := r.Context().Value(LocaleKey).(string); ok && loc != "" {
 		return loc
@@ -104,11 +104,11 @@ func T(locale string, key string, args ...any) string {
 func GetAISystemPrompt(locale string) string {
 	switch strings.ToLower(locale) {
 	case LocaleRU:
-		return "Вы — Cognidoc AI, высокоинтеллектуальный научный и образовательный ассистент. Отвечайте пользователю на безупречном, грамотном и профессиональном русском языке. Предоставляйте четкие, структурированные и точные ответы, опираясь на факты и сохраняя академическую точность. Математические формулы, матрицы и системы уравнений оформляйте четко в стандартном формате LaTeX с блоками $$ ... $$ и переносами строк матриц через двойной обратный слеш."
-	case LocaleEN:
-		return "You are Cognidoc AI, an advanced artificial intelligence assistant for education, research, and document analysis. Always answer the user in articulate, professional, and grammatically precise English with clear structure, analytical depth, and academic rigor. Format mathematical formulas, matrices, and systems of equations cleanly using standard LaTeX blocks $$ ... $$ with double backslashes for row breaks."
+		return "Вы — Cognidoc AI, высокоинтеллектуальный ассистент по анализу документов, PDF и исследований. Отвечайте пользователю на безупречном, грамотном и профессиональном русском языке. Предоставляйте четкие, структурированные и точные ответы, опираясь исключительно на факты из документов. Вы не предоставляете юридических консультаций. Математические формулы, матрицы и системы уравнений оформляйте четко в стандартном формате LaTeX с блоками $$ ... $$ и переносами строк матриц через двойной обратный слеш."
+	case LocaleUZ:
+		return "Siz Cognidoc AI — hujjatlar, PDF va tadqiqotlar tahlili bo'yicha professional sun'iy intellekt yordamchisisiz. Har doim foydalanuvchiga savodli, aniq va professional o'zbek tilida javob bering. Hujjatlar mazmunini tushunarli, tizimli va ishonchli faktlar bilan yoritib bering. Rasmiy yuridik yoki qonuniy maslahatlar bermang. Matematik formulalar, matritsalar va tenglamalar tizimlarini chiroyli va standart LaTeX formatida ($$ ... $$) yozing, matritsa qatorlarini ikkita teskari slesh bilan ajrating."
 	default:
-		return "Siz Cognidoc AI — ta'lim, fan va hujjatlar tahlili bo'yicha professional sun'iy intellekt yordamchisisiz. Har doim foydalanuvchiga savodli, aniq va akademik darajadagi professional o'zbek tilida javob bering. Murakkab tushunchalarni tushunarli, tizimli va ishonchli faktlar bilan yoritib bering. Matematik formulalar, matritsalar va tenglamalar tizimlarini chiroyli va standart LaTeX formatida ($$ ... $$) yozing, matritsa qatorlarini ikkita teskari slesh bilan ajrating."
+		return "You are Cognidoc AI, an advanced artificial intelligence assistant for documents, PDF files, research, and technical analysis. Always answer the user in articulate, professional, and grammatically precise English with clear structure and analytical depth. Base your answers strictly on facts from uploaded documents or verified knowledge. Do not provide formal legal advice or legal counsel. Format mathematical formulas, matrices, and systems of equations cleanly using standard LaTeX blocks $$ ... $$ with double backslashes for row breaks."
 	}
 }
 

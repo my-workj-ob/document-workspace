@@ -21,11 +21,11 @@ enum AppLanguage {
     switch (clean) {
       case 'ru':
         return AppLanguage.ru;
-      case 'en':
-        return AppLanguage.en;
       case 'uz':
-      default:
         return AppLanguage.uz;
+      case 'en':
+      default:
+        return AppLanguage.en;
     }
   }
 }
@@ -35,7 +35,7 @@ class AppLanguageNotifier extends StateNotifier<AppLanguage> {
   final String Function() _getBaseUrl;
   static const _key = 'selected_app_language';
 
-  AppLanguageNotifier(this._storage, this._getBaseUrl) : super(AppLanguage.uz) {
+  AppLanguageNotifier(this._storage, this._getBaseUrl) : super(AppLanguage.en) {
     _loadLanguage();
   }
 
@@ -91,7 +91,7 @@ class AppStrings {
   static String tr(String key, AppLanguage lang) {
     final map = _strings[key];
     if (map == null) return key;
-    return map[lang] ?? map[AppLanguage.uz] ?? key;
+    return map[lang] ?? map[AppLanguage.en] ?? key;
   }
 
   static const Map<String, Map<AppLanguage, String>> _strings = {
@@ -329,30 +329,30 @@ class AppStrings {
     },
 
     // -------------------------------------------------------------
-    // EXPLORE / EDUCATION TOOLS
+    // EXPLORE / DOCUMENT TOOLS
     // -------------------------------------------------------------
     'app_title': {
-      AppLanguage.uz: 'Cognidoc AI • Ta\'lim & Kitoblar',
-      AppLanguage.ru: 'Cognidoc AI • Образование и Книги',
-      AppLanguage.en: 'Cognidoc AI • Education & Books',
+      AppLanguage.uz: 'Cognidoc AI • Hujjatlar & PDF Tahlili',
+      AppLanguage.ru: 'Cognidoc AI • Анализ документов и PDF',
+      AppLanguage.en: 'Cognidoc AI • Document & PDF Intelligence',
     },
     'hero_title': {
-      AppLanguage.uz: 'Ta\'lim va Ilm-fan uchun Sun\'iy Intellekt',
-      AppLanguage.ru: 'Искусственный интеллект для учебы и науки',
-      AppLanguage.en: 'Artificial Intelligence for Education & Study',
+      AppLanguage.uz: 'Hujjatlar va PDF Tahlili uchun Sun\'iy Intellekt',
+      AppLanguage.ru: 'Искусственный интеллект для документов и PDF',
+      AppLanguage.en: 'Artificial Intelligence for Documents & PDFs',
     },
     'hero_subtitle': {
       AppLanguage.uz:
-          'Darslik, kitob va ilmiy maqolalarni bir zumda tahlil qiling, testlar tuzing va konspekt oling',
+          'PDF, Word va hujjatlarni bir zumda tahlil qiling, savollarga sahifama-sahifa aniq javob oling',
       AppLanguage.ru:
-          'Мгновенный анализ учебников и научных статей, генерация тестов и умные конспекты',
+          'Мгновенный анализ PDF, Word и документов с постраничными точными ответами',
       AppLanguage.en:
-          'Instantly analyze textbooks, research papers, generate quizzes, and create smart notes',
+          'Instantly analyze PDFs, Word files, and research documents with verified page citations',
     },
     'search_placeholder': {
-      AppLanguage.uz: 'Darslik, fan yoki mavzuni qidiring...',
-      AppLanguage.ru: 'Поиск учебников, предметов или тем...',
-      AppLanguage.en: 'Search textbooks, subjects, or topics...',
+      AppLanguage.uz: 'Hujjat, mavzu yoki savolni qidiring...',
+      AppLanguage.ru: 'Поиск документов или тем...',
+      AppLanguage.en: 'Search documents or topics...',
     },
     'ready_sample': {
       AppLanguage.uz: 'Tayyor namunalar bilan sinab ko\'ring:',
@@ -360,29 +360,29 @@ class AppStrings {
       AppLanguage.en: 'Try with ready-to-use samples:',
     },
     'sample_physics': {
-      AppLanguage.uz: '📚 Fizika va Matematika darsligi',
-      AppLanguage.ru: '📚 Учебник по физике и математике',
-      AppLanguage.en: '📚 Physics & Math Textbook',
+      AppLanguage.uz: '📑 Texnik hujjat & Hisobot tahlili',
+      AppLanguage.ru: '📑 Анализ технического отчета',
+      AppLanguage.en: '📑 Technical Report & PDF Review',
     },
     'sample_quiz': {
-      AppLanguage.uz: '🎓 Imtihon uchun Test (15 ta)',
-      AppLanguage.ru: '🎓 Тест для экзамена (15 вопросов)',
-      AppLanguage.en: '🎓 Exam Prep Quiz (15 Qs)',
+      AppLanguage.uz: '📋 Hujjat bo\'yicha Test & Savol-Javob',
+      AppLanguage.ru: '📋 Тест и вопросы по документу',
+      AppLanguage.en: '📋 Document Q&A & Key Points',
     },
     'sample_summary': {
-      AppLanguage.uz: '📝 Qisqa Konspekt & Formulalar',
-      AppLanguage.ru: '📝 Краткий конспект и формулы',
-      AppLanguage.en: '📝 Smart Study Notes & Formulas',
+      AppLanguage.uz: '📝 Qisqa Konspekt & Xulosalar',
+      AppLanguage.ru: '📝 Краткое резюме и выводы',
+      AppLanguage.en: '📝 Smart Summary & Key Takeaways',
     },
     'sample_language': {
-      AppLanguage.uz: '🌍 Ingliz tili: Lug\'at va Grammatika',
-      AppLanguage.ru: '🌍 Изучение языка: Словарь и грамматика',
-      AppLanguage.en: '🌍 Language: Vocab & Grammar',
+      AppLanguage.uz: '🌍 Xalqaro hujjatlar tarjimasi & tahlili',
+      AppLanguage.ru: '🌍 Перевод и анализ международных документов',
+      AppLanguage.en: '🌍 Global Document Translation & Insight',
     },
     'education_tools': {
-      AppLanguage.uz: 'Ta\'lim Asboblari',
-      AppLanguage.ru: 'Инструменты обучения',
-      AppLanguage.en: 'Education Tools',
+      AppLanguage.uz: 'Hujjat Asboblari',
+      AppLanguage.ru: 'Инструменты документов',
+      AppLanguage.en: 'Document Tools',
     },
     'all_count': {
       AppLanguage.uz: '8 ta rejim',
@@ -394,22 +394,22 @@ class AppStrings {
     // CHAT & AI INTERFACE
     // -------------------------------------------------------------
     'chat_empty_title': {
-      AppLanguage.uz: 'Darslik yoki kitobni tahlil qilishni boshlang',
-      AppLanguage.ru: 'Начните анализ учебника или документа',
-      AppLanguage.en: 'Start analyzing your textbook or document',
+      AppLanguage.uz: 'PDF yoki hujjat tahlilini boshlang',
+      AppLanguage.ru: 'Начните анализ документа или PDF',
+      AppLanguage.en: 'Start analyzing your document or PDF',
     },
     'chat_empty_subtitle': {
       AppLanguage.uz:
-          'Fayl yuklang (PDF, Word, rasm) yoki savolingizni yozing. AI darslik asosida aniq tahlil beradi.',
+          'Fayl yuklang (PDF, Word, rasm) yoki savolingizni yozing. AI hujjat asosida aniq tahlil beradi.',
       AppLanguage.ru:
           'Загрузите файл (PDF, Word, фото) или задайте вопрос. ИИ предоставит точный ответ со ссылками на страницы.',
       AppLanguage.en:
           'Upload a file (PDF, Word, photo) or ask a question. AI provides structured answers with page citations.',
     },
     'chat_input_placeholder': {
-      AppLanguage.uz: 'Savolingizni yozing yoki kitob bo\'limini so\'rang...',
-      AppLanguage.ru: 'Задайте вопрос или запросите главу из книги...',
-      AppLanguage.en: 'Ask a question or request a chapter review...',
+      AppLanguage.uz: 'Savolingizni yozing yoki hujjat yuklang...',
+      AppLanguage.ru: 'Введите вопрос или прикрепите документ...',
+      AppLanguage.en: 'Type a question or upload a document...',
     },
     'chat_attach_file': {
       AppLanguage.uz: 'Hujjat biriktirish (PDF/Word/Rasm)',

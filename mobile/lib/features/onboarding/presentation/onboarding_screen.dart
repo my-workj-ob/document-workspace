@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/ui_sound_feedback.dart';
-import 'language_selection_screen.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   final VoidCallback onFinished;
@@ -28,22 +27,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  void _goToLanguageSelection() {
+  void _finishOnboarding() {
     UiSoundFeedback.playActionClick();
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            LanguageSelectionScreen(onFinished: widget.onFinished),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOutCubic;
-          var tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(position: animation.drive(tween), child: child);
-        },
-      ),
-    );
+    widget.onFinished();
   }
 
   void _nextPage() {
@@ -54,7 +40,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         curve: Curves.easeInOutCubic,
       );
     } else {
-      _goToLanguageSelection();
+      _finishOnboarding();
     }
   }
 
@@ -123,7 +109,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     )
                   else
                     TextButton(
-                      onPressed: _goToLanguageSelection,
+                      onPressed: _finishOnboarding,
                       style: TextButton.styleFrom(
                         foregroundColor: isDark
                             ? AppColors.darkTextSecondary
