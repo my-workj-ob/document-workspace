@@ -46,12 +46,48 @@ type RevenueCatWebhookPayload struct {
 
 // ClientSyncRequest is sent by the mobile app after purchase/restore to synchronize state immediately.
 type ClientSyncRequest struct {
-	OriginalTransactionID string     `json:"original_transaction_id"`
-	ProductID             string     `json:"product_id"`
-	EntitlementID         string     `json:"entitlement_id"`
-	IsActive              bool       `json:"is_active"`
-	ExpirationDate        *time.Time `json:"expiration_date"`
-	Store                 string     `json:"store"`
+	OriginalTransactionID string `json:"original_transaction_id"`
+	ProductID             string `json:"product_id"`
+	EntitlementID         string `json:"entitlement_id"`
+	IsActive              bool   `json:"is_active"`
+	ExpirationDate        any    `json:"expiration_date"` // supports string (RFC3339, ISO8601), float64, or nil
+	Store                 string `json:"store"`
+}
+
+func parseExpirationDate(raw any) *time.Time {
+	if raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case string:
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return nil
+		}
+		layouts := []string{
+			time.RFC3339Nano,
+			time.RFC3339,
+			"2006-01-02T15:04:05.999999999",
+			"2006-01-02T15:04:05.999999",
+			"2006-01-02T15:04:05",
+			"2006-01-02 15:04:05",
+			"2006-01-02",
+		}
+		for _, layout := range layouts {
+			if t, err := time.Parse(layout, v); err == nil {
+				utc := t.UTC()
+				return &utc
+			}
+		}
+	case float64:
+		sec := int64(v)
+		if sec > 10000000000 {
+			sec = sec / 1000
+		}
+		t := time.Unix(sec, 0).UTC()
+		return &t
+	}
+	return nil
 }
 
 // RevenueCatHandler manages webhook processing and subscription synchronization.
@@ -196,8 +232,8 @@ func (h *RevenueCatHandler) SyncFromClient(ctx context.Context, userID string, r
 	portalURL := fmt.Sprintf("https://play.google.com/store/account/subscriptions?package=%s", h.packageName)
 
 	var endsAt *time.Time
-	if req.ExpirationDate != nil {
-		endsAt = req.ExpirationDate
+	if parsed := parseExpirationDate(req.ExpirationDate); parsed != nil {
+		endsAt = parsed
 	} else {
 		// Default 30-day or 1-year window if not provided
 		t := time.Now().AddDate(0, 1, 0)

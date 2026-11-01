@@ -122,7 +122,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
           'product_id': ent?.productIdentifier ?? 'pro',
           'entitlement_id': RevenueCatConfig.entitlementId,
           'is_active': hasPro,
-          'expiration_date': expDate?.toIso8601String(),
+          'expiration_date': expDate?.toUtc().toIso8601String(),
           'store': ent?.store.name ?? 'play_store',
         },
       );
@@ -253,7 +253,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
           'product_id': productId,
           'entitlement_id': RevenueCatConfig.entitlementId,
           'is_active': true,
-          'expiration_date': expiration.toIso8601String(),
+          'expiration_date': expiration.toUtc().toIso8601String(),
           'store': store,
         },
       );
