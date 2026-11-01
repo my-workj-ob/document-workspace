@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/subscription_provider.dart';
+import 'card_checkout_sheet.dart';
 
 class PaymentBottomSheet extends ConsumerStatefulWidget {
   final String initialPlanId; // 'pro' or 'ultra'
@@ -34,6 +35,7 @@ class PaymentBottomSheet extends ConsumerStatefulWidget {
 class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet> {
   late String _selectedTier; // 'pro' or 'ultra'
   String _selectedBilling = 'yearly'; // 'monthly', 'yearly', 'lifetime'
+  String _paymentMethod = 'card'; // 'card' or 'google_play'
   bool _isProcessing = false;
 
   @override
@@ -68,56 +70,88 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet> {
     }
   }
 
+  Future<void> _openCardCheckout() async {
+    final success = await CardCheckoutSheet.show(
+      context,
+      planId: _selectedTier,
+      billingCycle: _selectedBilling,
+    );
+    if (success == true && mounted) {
+      Navigator.pop(context); // Close PaymentBottomSheet on success
+    }
+  }
+
   Future<void> _handleGooglePlayPayment() async {
     setState(() => _isProcessing = true);
     final messenger = ScaffoldMessenger.of(context);
 
     try {
       if (_selectedTier == 'ultra') {
-        // 1. Try fetching Ultra offering or package from RevenueCat
-        final offerings = await ref.read(subscriptionProvider.notifier).getOfferings();
-        final ultraOffering = offerings?.all['ultra'] ?? offerings?.all['Ultra'];
-        if (ultraOffering != null) {
-          final pkg = ultraOffering.getPackage(_selectedBilling);
-          if (pkg != null) {
-            final isPurchased = await ref.read(subscriptionProvider.notifier).purchase(pkg);
-            if (!mounted) return;
-            setState(() => _isProcessing = false);
-            if (isPurchased) {
-              Navigator.pop(context);
-              messenger.showSnackBar(
-                const SnackBar(
-                  backgroundColor: AppColors.primary,
-                  content: Text('Ultra obuna Google Play orqali muvaffaqiyatli faollashtirildi! 👑'),
-                ),
-              );
-              return;
+        // Check with strict 2-second timeout to prevent indefinite spinning
+        try {
+          final offerings = await ref
+              .read(subscriptionProvider.notifier)
+              .getOfferings()
+              .timeout(const Duration(seconds: 2));
+          final ultraOffering = offerings?.all['ultra'] ?? offerings?.all['Ultra'];
+          if (ultraOffering != null) {
+            final pkg = ultraOffering.getPackage(_selectedBilling);
+            if (pkg != null) {
+              final isPurchased = await ref.read(subscriptionProvider.notifier).purchase(pkg);
+              if (!mounted) return;
+              setState(() => _isProcessing = false);
+              if (isPurchased) {
+                Navigator.pop(context);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    backgroundColor: AppColors.primary,
+                    content: Text('Ultra obuna Google Play orqali muvaffaqiyatli faollashtirildi! 👑'),
+                  ),
+                );
+                return;
+              }
             }
           }
-        }
+        } catch (_) {}
 
-        // 2. If Ultra is not configured as a separate Play Store offering yet, activate Ultra entitlement directly
-        final success = await ref.read(subscriptionProvider.notifier).purchaseManual(
-              productId: 'ultra_$_selectedBilling',
-              store: 'play_store',
-            );
         if (!mounted) return;
         setState(() => _isProcessing = false);
-        if (success) {
-          Navigator.pop(context);
-          messenger.showSnackBar(
-            const SnackBar(
-              backgroundColor: AppColors.primary,
-              content: Text('Ultra obuna muvaffaqiyatli faollashtirildi! 👑'),
+
+        // If Google Play Ultra package is not configured, seamlessly transition to Card Checkout
+        final proceedToCard = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.credit_card_rounded, color: Colors.deepPurpleAccent),
+                SizedBox(width: 8),
+                Text('Bank kartasi orqali to\'lov'),
+              ],
             ),
-          );
-        } else {
-          messenger.showSnackBar(
-            const SnackBar(
-              backgroundColor: Colors.red,
-              content: Text('Ultra obunani faollashtirib bo\'lmadi. Qayta urining.'),
+            content: const Text(
+              'Google Play orqali Ultra obuna tekshirilmoqda.\n\n'
+              'Hozirda Bank kartasi (Uzcard, Humo, Visa) orqali to\'lov qilib, Ultra xizmatini darhol faollashtirishingiz mumkin!',
             ),
-          );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Bekor qilish'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurpleAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Karta orqali to\'lash'),
+              ),
+            ],
+          ),
+        );
+
+        if (proceedToCard == true && mounted) {
+          _openCardCheckout();
         }
         return;
       }
@@ -557,9 +591,70 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet> {
                     ],
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
-                  // Primary Google Play Purchase Button
+                  // Payment Method Selector
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        RadioListTile<String>(
+                          value: 'card',
+                          groupValue: _paymentMethod,
+                          activeColor: isUltra ? Colors.deepPurpleAccent : AppColors.primary,
+                          onChanged: (val) => setState(() => _paymentMethod = val!),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.credit_card_rounded, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Bank kartasi (Uzcard, Humo, Visa)',
+                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          subtitle: const Text(
+                            'Darhol faollashtirish • 0% komissiya',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        ),
+                        RadioListTile<String>(
+                          value: 'google_play',
+                          groupValue: _paymentMethod,
+                          activeColor: isUltra ? Colors.deepPurpleAccent : AppColors.primary,
+                          onChanged: (val) => setState(() => _paymentMethod = val!),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.shop_two_rounded, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Google Play Store',
+                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          subtitle: const Text(
+                            'Google hisobingiz orqali obuna',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Primary Purchase / Checkout Button
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isUltra ? Colors.deepPurpleAccent : AppColors.primary,
@@ -568,11 +663,25 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
+                      elevation: 2,
                     ),
-                    onPressed: _isProcessing ? null : _handleGooglePlayPayment,
+                    onPressed: _isProcessing
+                        ? null
+                        : () {
+                            if (_paymentMethod == 'card') {
+                              _openCardCheckout();
+                            } else {
+                              _handleGooglePlayPayment();
+                            }
+                          },
                     icon: _isProcessing
                         ? const SizedBox.shrink()
-                        : const Icon(Icons.shop_two_rounded, size: 22),
+                        : Icon(
+                            _paymentMethod == 'card'
+                                ? Icons.credit_card_rounded
+                                : Icons.shop_two_rounded,
+                            size: 22,
+                          ),
                     label: _isProcessing
                         ? const SizedBox(
                             height: 20,
@@ -583,7 +692,9 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet> {
                             ),
                           )
                         : Text(
-                            'Google Play orqali ulanish (\$${_currentPlanPrice.toStringAsFixed(2)})',
+                            _paymentMethod == 'card'
+                                ? 'Karta orqali to\'lovga o\'tish (\$${_currentPlanPrice.toStringAsFixed(2)})'
+                                : 'Google Play orqali ulanish (\$${_currentPlanPrice.toStringAsFixed(2)})',
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,

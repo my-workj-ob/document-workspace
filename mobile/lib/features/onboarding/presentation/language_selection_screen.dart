@@ -58,6 +58,7 @@ class _LanguageSelectionScreenState
     }
 
     // 3. Standalone mode (opened from Settings/Profile): callback or pop
+    if (!mounted) return;
     if (widget.onFinished != null) {
       widget.onFinished!();
     } else if (Navigator.of(context).canPop()) {

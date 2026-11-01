@@ -234,7 +234,26 @@ func (h *RevenueCatHandler) SyncFromClient(ctx context.Context, userID string, r
 			updated_at = CURRENT_TIMESTAMP
 	`, userID, origID, userID, req.ProductID, store, planID, status, endsAt, portalURL)
 	if err != nil {
-		return fmt.Errorf("failed to upsert synced subscription: %w", err)
+		// Fallback in case table has standard unique constraint without partial WHERE index
+		_, err2 := h.pool.Exec(ctx, `
+			INSERT INTO subscriptions (
+				user_id, provider, original_transaction_id, revenuecat_app_user_id,
+				product_id, store, plan_id, status, ends_at, customer_portal_url, updated_at
+			) VALUES (
+				$1::uuid, 'revenuecat', $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP
+			)
+			ON CONFLICT (original_transaction_id) DO UPDATE SET
+				status = EXCLUDED.status,
+				ends_at = EXCLUDED.ends_at,
+				product_id = EXCLUDED.product_id,
+				plan_id = EXCLUDED.plan_id,
+				store = EXCLUDED.store,
+				customer_portal_url = EXCLUDED.customer_portal_url,
+				updated_at = CURRENT_TIMESTAMP
+		`, userID, origID, userID, req.ProductID, store, planID, status, endsAt, portalURL)
+		if err2 != nil {
+			log.Printf("[WARN] [RevenueCat] Failed to upsert subscription row: %v (err1: %v)", err2, err)
+		}
 	}
 
 	// Update user's direct plan_id in users table

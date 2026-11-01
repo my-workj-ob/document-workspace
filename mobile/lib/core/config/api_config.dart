@@ -21,7 +21,7 @@ class ApiBaseUrlNotifier extends StateNotifier<String> {
       return _envBaseUrl.trim();
     }
     if (kReleaseMode) {
-      return 'https://document-workspace-g59a.onren der.com';
+      return 'https://document-workspace-g59a.onrender.com';
     }
     // http://localhost:8080 works for Web, Desktop, and physical Android devices via `adb reverse tcp:8080 tcp:8080`
     return 'https://document-workspace-g59a.onrender.com';

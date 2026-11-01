@@ -17,6 +17,9 @@ import '../../subscription/providers/subscription_provider.dart';
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
+  
+
+
   void _showLogoutDialog(BuildContext context, WidgetRef ref, AppLanguage lang) {
     showDialog(
       context: context,
@@ -650,6 +653,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 30),
         ],
       ),
-    ));
-  }
+    ),
+  );
+}
 }
