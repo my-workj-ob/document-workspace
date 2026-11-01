@@ -45,4 +45,18 @@ class AppColors {
   static const Color error = Color(0xFFEF4444);
   static const Color warning = Color(0xFFF59E0B);
   static const Color success = Color(0xFF10B981);
+
+  // Document Intelligence Activity Tokens (CogniDoc Deep Obsidian & Emerald)
+  static const Color activityCompleted = Color(0xFF10B981); // Emerald
+  static const Color activityActive = Color(0xFF06B6D4); // Cyan / Teal
+  static const Color activityPending = Color(0xFF64748B); // Slate Muted
+  static const Color activityGlow = Color(0x3306B6D4);
+  static const Color activityBackgroundDark = Color(0xFF131B26); // Slate 900
+  static const Color activityBackgroundLight = Color(0xFFF1F5F9);
+  static const Color activityBorderDark = Color(0xFF1E293B);
+  static const Color activityBorderLight = Color(0xFFE2E8F0);
+  static const Color citationBadgeDark = Color(0xFF0F291E);
+  static const Color citationBadgeLight = Color(0xFFE6F4EA);
+  static const Color citationTextDark = Color(0xFF34D399);
+  static const Color citationTextLight = Color(0xFF059669);
 }

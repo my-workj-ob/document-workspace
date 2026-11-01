@@ -66,6 +66,15 @@ class SSEClient {
         final line = lines[i].trim();
         if (line.isEmpty) continue;
 
+        if (line.startsWith(':')) {
+          // SSE comment keepalive / ping
+          yield SSEEvent(
+            event: 'pipeline.heartbeat',
+            data: {'timestamp': DateTime.now().toIso8601String()},
+          );
+          continue;
+        }
+
         if (line.startsWith('event:')) {
           currentEvent = line.substring(6).trim();
         } else if (line.startsWith('data:')) {
@@ -76,6 +85,7 @@ class SSEClient {
               yield SSEEvent(event: currentEvent, data: parsed);
             }
           } catch (_) {}
+          currentEvent = 'message';
         }
       }
     }

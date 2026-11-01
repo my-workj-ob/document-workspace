@@ -39,7 +39,30 @@ func (h *GenerationHandler) StreamGeneration(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	h.service.ExecuteStream(w, r, userID, convID, req.Message, req.ModelID, req.FileIDs)
+	h.service.ExecuteStream(w, r, userID, convID, req.Message, req.ModelID, req.Mode, req.FileIDs)
+}
+
+// ContinueGeneration handles resuming an interrupted analysis from its saved checkpoint (SSE).
+func (h *GenerationHandler) ContinueGeneration(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		apphttp.WriteError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Avtorizatsiya talab qilinadi")
+		return
+	}
+
+	convID := chi.URLParam(r, "conversationID")
+	var req generations.ContinueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apphttp.WriteError(w, r, http.StatusBadRequest, "MALFORMED_JSON", "Noto'g'ri so'rov formati")
+		return
+	}
+
+	if req.CheckpointID == "" {
+		apphttp.WriteError(w, r, http.StatusBadRequest, "MISSING_CHECKPOINT_ID", "Nazorat nuqtasi ID ko'rsatilmagan")
+		return
+	}
+
+	h.service.ContinueStream(w, r, userID, convID, req.CheckpointID, req.ModelID)
 }
 
 // CancelGeneration triggers cancellation for an in-flight generation.

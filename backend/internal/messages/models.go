@@ -4,15 +4,19 @@ import "time"
 
 // Message represents a single chat bubble.
 type Message struct {
-	ID             string    `json:"id"`
-	ConversationID string    `json:"conversation_id"`
-	UserID         string    `json:"user_id"`
-	Role           string    `json:"role"`
-	Content        string    `json:"content"`
-	Status         string    `json:"status"`
-	AttachedFileIDs []string  `json:"attached_file_ids,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	ConversationID     string    `json:"conversation_id"`
+	UserID             string    `json:"user_id"`
+	Role               string    `json:"role"`
+	Content            string    `json:"content"`
+	Status             string    `json:"status"`
+	AttachedFileIDs    []string  `json:"attached_file_ids,omitempty"`
+	Citations          any       `json:"citations,omitempty"`
+	SuggestedQuestions []string  `json:"suggested_questions,omitempty"`
+	ExtractedEntities  any       `json:"extracted_entities,omitempty"`
+	AnalysisMode       string    `json:"analysis_mode,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // CreateMessageRequest payload.

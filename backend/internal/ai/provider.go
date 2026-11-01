@@ -26,10 +26,12 @@ type ChatMessage struct {
 
 // StreamChunk delivers incremental delta tokens.
 type StreamChunk struct {
-	DeltaContent string
-	IsDone       bool
-	PromptTokens int
-	CompTokens   int
+	DeltaContent   string
+	DeltaReasoning string
+	IsDone         bool
+	FinishReason   string
+	PromptTokens   int
+	CompTokens     int
 }
 
 // Provider represents the pluggable LLM interface.
@@ -101,8 +103,10 @@ type openAIChatRequest struct {
 
 type openAIStreamChoice struct {
 	Delta struct {
-		Content   string `json:"content"`
-		Reasoning string `json:"reasoning,omitempty"`
+		Content          string `json:"content"`
+		Reasoning        string `json:"reasoning,omitempty"`
+		ReasoningContent string `json:"reasoning_content,omitempty"`
+		Thought          string `json:"thought,omitempty"`
 	} `json:"delta"`
 	FinishReason *string `json:"finish_reason"`
 }
@@ -234,9 +238,27 @@ func (p *OpenAICompatibleProvider) StreamChat(ctx context.Context, messages []Ch
 			}
 
 			if len(streamResp.Choices) > 0 {
-				delta := streamResp.Choices[0].Delta.Content
-				if delta != "" {
-					outCh <- StreamChunk{DeltaContent: delta}
+				choice := streamResp.Choices[0]
+				delta := choice.Delta.Content
+				reasoning := choice.Delta.Reasoning
+				if reasoning == "" {
+					reasoning = choice.Delta.ReasoningContent
+				}
+				if reasoning == "" {
+					reasoning = choice.Delta.Thought
+				}
+
+				finishReason := ""
+				if choice.FinishReason != nil {
+					finishReason = *choice.FinishReason
+				}
+
+				if delta != "" || reasoning != "" || finishReason != "" {
+					outCh <- StreamChunk{
+						DeltaContent:   delta,
+						DeltaReasoning: reasoning,
+						FinishReason:   finishReason,
+					}
 				}
 			}
 		}

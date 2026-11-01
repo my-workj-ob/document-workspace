@@ -261,27 +261,64 @@ func (s *Service) RetrieveRelevantContext(ctx context.Context, userID string, fi
 	var err error
 
 	if len(filteredWords) > 0 {
-		rows, err = s.pool.Query(ctx, `
-			SELECT c.file_id, f.filename, c.page_number, c.section_title, c.content
-			FROM file_chunks c
-			JOIN files f ON f.id = c.file_id
-			WHERE c.file_id = ANY($1::uuid[]) AND f.user_id = $2::uuid
-			ORDER BY (
-				SELECT COUNT(*) 
-				FROM unnest($3::text[]) kw 
-				WHERE LOWER(c.content) LIKE kw
-			) DESC, c.chunk_index ASC
-			LIMIT 6
-		`, fileIDs, userID, filteredWords)
+		if len(fileIDs) > 1 {
+			rows, err = s.pool.Query(ctx, `
+				SELECT file_id, filename, page_number, section_title, content
+				FROM (
+					SELECT c.file_id, f.filename, c.page_number, c.section_title, c.content,
+					       ROW_NUMBER() OVER(
+					           PARTITION BY c.file_id 
+					           ORDER BY (
+					               SELECT COUNT(*) 
+					               FROM unnest($3::text[]) kw 
+					               WHERE LOWER(c.content) LIKE kw
+					           ) DESC, c.chunk_index ASC
+					       ) as rn
+					FROM file_chunks c
+					JOIN files f ON f.id = c.file_id
+					WHERE c.file_id = ANY($1::uuid[]) AND f.user_id = $2::uuid
+				) sub
+				WHERE rn <= 4
+				LIMIT 12
+			`, fileIDs, userID, filteredWords)
+		} else {
+			rows, err = s.pool.Query(ctx, `
+				SELECT c.file_id, f.filename, c.page_number, c.section_title, c.content
+				FROM file_chunks c
+				JOIN files f ON f.id = c.file_id
+				WHERE c.file_id = ANY($1::uuid[]) AND f.user_id = $2::uuid
+				ORDER BY (
+					SELECT COUNT(*) 
+					FROM unnest($3::text[]) kw 
+					WHERE LOWER(c.content) LIKE kw
+				) DESC, c.chunk_index ASC
+				LIMIT 8
+			`, fileIDs, userID, filteredWords)
+		}
 	} else {
-		rows, err = s.pool.Query(ctx, `
-			SELECT c.file_id, f.filename, c.page_number, c.section_title, c.content
-			FROM file_chunks c
-			JOIN files f ON f.id = c.file_id
-			WHERE c.file_id = ANY($1::uuid[]) AND f.user_id = $2::uuid
-			ORDER BY c.chunk_index ASC
-			LIMIT 6
-		`, fileIDs, userID)
+		if len(fileIDs) > 1 {
+			rows, err = s.pool.Query(ctx, `
+				SELECT file_id, filename, page_number, section_title, content
+				FROM (
+					SELECT c.file_id, f.filename, c.page_number, c.section_title, c.content,
+					       ROW_NUMBER() OVER(PARTITION BY c.file_id ORDER BY c.chunk_index ASC) as rn
+					FROM file_chunks c
+					JOIN files f ON f.id = c.file_id
+					WHERE c.file_id = ANY($1::uuid[]) AND f.user_id = $2::uuid
+				) sub
+				WHERE rn <= 4
+				LIMIT 12
+			`, fileIDs, userID)
+		} else {
+			rows, err = s.pool.Query(ctx, `
+				SELECT c.file_id, f.filename, c.page_number, c.section_title, c.content
+				FROM file_chunks c
+				JOIN files f ON f.id = c.file_id
+				WHERE c.file_id = ANY($1::uuid[]) AND f.user_id = $2::uuid
+				ORDER BY c.chunk_index ASC
+				LIMIT 8
+			`, fileIDs, userID)
+		}
 	}
 
 	if err != nil {
