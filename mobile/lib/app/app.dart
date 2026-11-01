@@ -32,7 +32,11 @@ class AiChatApp extends ConsumerWidget {
               ),
             )
           : !onboardingState.hasCompleted
-              ? OnboardingScreen(onFinished: () {})
+              ? OnboardingScreen(
+                  onFinished: () {
+                    ref.read(onboardingProvider.notifier).completeOnboarding();
+                  },
+                )
               : authState.isAuthenticated
                   ? const HomeShell()
                   : const LoginScreen(),
